@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Minis Wettstetten">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a7bff"/>
+      <stop offset="1" stop-color="#0047a3"/>
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed background (safe zone is central 80%) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Subtle highlight -->
+  <circle cx="150" cy="120" r="220" fill="#ffffff" opacity="0.08"/>
+  <!-- Wordmark initial -->
+  <text x="256" y="352" font-size="300" text-anchor="middle"
+        font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-weight="800" fill="#ffffff"
+        letter-spacing="-10">M</text>
+</svg>

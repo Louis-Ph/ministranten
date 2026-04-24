@@ -18,6 +18,18 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Option zum Zurücksetzen der lokalen SQLite-Datenbank (Dev-Ansicht).
 - CSP um `wasm-unsafe-eval` und `cdnjs.cloudflare.com` in `connect-src`
   erweitert.
+- **PWA-Installierbarkeit**: echtes `manifest.webmanifest`, separater `sw.js`
+  mit Scope `./`, sowie `icon.svg`, `icon-192.png`, `icon-512.png` (plus
+  maskable-Varianten). Der Browser zeigt nun den „Installieren"-Hinweis.
+- Icon-Generator-Skript `scripts/make-icons.mjs` (nutzt das bereits
+  installierte Playwright-Chromium).
+
+### Geändert
+
+- Service-Worker wird primär aus `./sw.js` registriert; der bisherige
+  Blob-URL-Pfad bleibt ausschließlich als Fallback (z. B. `file://`).
+- Das inline Blob-Manifest wird nur noch eingeblendet, wenn
+  `./manifest.webmanifest` nicht erreichbar ist.
 
 ## [1.0.0] – 2026-04-24
 

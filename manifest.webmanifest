@@ -1,0 +1,37 @@
+{
+  "name": "Minis Wettstetten",
+  "short_name": "Minis",
+  "description": "Dienstplan, Chat und Verwaltung für die Ministrantinnen und Ministranten der Pfarrei Wettstetten.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f2f5f8",
+  "theme_color": "#0066cc",
+  "categories": ["productivity", "social", "utilities"],
+  "icons": [
+    { "src": "./icon.svg",     "type": "image/svg+xml", "sizes": "any",     "purpose": "any maskable" },
+    { "src": "./icon-192.png", "type": "image/png",     "sizes": "192x192", "purpose": "any" },
+    { "src": "./icon-512.png", "type": "image/png",     "sizes": "512x512", "purpose": "any" },
+    { "src": "./icon-192-maskable.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "./icon-512-maskable.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dienste",
+      "short_name": "Dienste",
+      "description": "Direkt zur Liste der kommenden Gottesdienste.",
+      "url": "./#home",
+      "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Öffnet den Gruppenchat.",
+      "url": "./#chat",
+      "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

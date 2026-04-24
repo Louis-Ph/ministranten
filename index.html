@@ -10,6 +10,15 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com https://cdnjs.cloudflare.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none';" />
 <title>Minis Wettstetten</title>
 
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="./icon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Minis" />
+<meta name="mobile-web-app-capable" content="yes" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
@@ -713,11 +722,16 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   function registerServiceWorker() {
     if (ACTIVE_BACKEND === BACKENDS.MOCK) return;
     if (!('serviceWorker' in navigator)) return;
-    try {
-      const blob = new Blob([swCode], { type: 'text/javascript' });
-      const url = URL.createObjectURL(blob);
-      navigator.serviceWorker.register(url).catch(err => console.warn('SW registration failed', err));
-    } catch (e) { console.warn('SW blob failed', e); }
+    // Bevorzugt: echte Datei ./sw.js (nötig für PWA-Installierbarkeit –
+    // Blob-URLs haben einen begrenzten Scope, den Browser ablehnen).
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch((err) => {
+      console.warn('SW Datei nicht erreichbar, fallback auf Blob.', err);
+      try {
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        const url = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(url).catch(e => console.warn('SW blob fallback failed', e));
+      } catch (e) { console.warn('SW blob failed', e); }
+    });
   }
 
   // -----------------------------------------------------------------
@@ -1858,38 +1872,32 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   window.addEventListener('offline', () => toast('Offline-Modus.', 'warn'));
 
   // -----------------------------------------------------------------
-  // 18. Manifest (inline via Blob URL)
+  // 18. Manifest-Fallback (wenn manifest.webmanifest nicht erreichbar ist,
+  //     z. B. beim lokalen Öffnen via file://).
   // -----------------------------------------------------------------
-  (function injectManifest() {
-    try {
-      const iconSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">' +
-        '<rect width="192" height="192" rx="38" fill="#0066cc"/>' +
-        '<text x="96" y="128" font-size="110" text-anchor="middle" font-family="Inter,Arial" fill="white" font-weight="800">M</text>' +
-        '</svg>'
-      );
-      const manifest = {
-        name: 'Minis Wettstetten',
-        short_name: 'Minis',
-        start_url: '.',
-        scope: '.',
-        display: 'standalone',
-        background_color: '#f2f5f8',
-        theme_color: '#0066cc',
-        lang: 'de',
-        dir: 'ltr',
-        icons: [
-          { src: iconSvg, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
-          { src: iconSvg, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
-        ]
-      };
-      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('link');
-      link.rel = 'manifest';
-      link.href = url;
-      document.head.appendChild(link);
-    } catch (e) { /* silent */ }
+  (function manifestFallback() {
+    const existing = document.querySelector('link[rel="manifest"]');
+    if (!existing) return;
+    // Probieren, das Manifest zu laden; bei Fehler ein In-Memory-Manifest injizieren.
+    fetch(existing.href, { method: 'HEAD' }).catch(() => {
+      try {
+        const iconSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">' +
+          '<rect width="512" height="512" fill="#0066cc"/>' +
+          '<text x="256" y="336" font-size="280" text-anchor="middle" font-family="Inter,Arial" fill="white" font-weight="800">M</text>' +
+          '</svg>'
+        );
+        const manifest = {
+          name: 'Minis Wettstetten', short_name: 'Minis',
+          start_url: '.', scope: '.', display: 'standalone',
+          background_color: '#f2f5f8', theme_color: '#0066cc',
+          lang: 'de', dir: 'ltr',
+          icons: [{ src: iconSvg, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }]
+        };
+        const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        existing.href = URL.createObjectURL(blob);
+      } catch (_) { /* silent */ }
+    });
   })();
 
   // -----------------------------------------------------------------
