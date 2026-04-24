@@ -25,8 +25,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Pages konfigurieren
+      - name: Pages konfigurieren (und bei Bedarf aktivieren)
         uses: actions/configure-pages@v6
+        with:
+          # Aktiviert GitHub Pages automatisch, falls noch nicht eingerichtet.
+          # Erfordert die Permission `pages: write` (oben deklariert).
+          enablement: true
 
       - name: Artefakt bündeln (statische Dateien)
         uses: actions/upload-pages-artifact@v5
