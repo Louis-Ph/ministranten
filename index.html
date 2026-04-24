@@ -201,6 +201,13 @@ a:hover { text-decoration: underline; }
     font-weight: 800;
     line-height: 1;
   }
+  .app-header .header-actions .btn[aria-label="App installieren"]::before {
+    content: "↓";
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+  }
   .app-header .header-actions .btn[aria-label="Abmelden"]::before {
     content: "↪";
     display: block;
@@ -746,6 +753,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   const DEV_MASTERKEY = 'miniswettapp';
   const CHAT_LIMIT = 40;
   const SYSTEM_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
+  const PWA_INSTALL_LABEL = 'App installieren';
+  const PWA_INSTALLED_MESSAGE = 'App installiert.';
+  const PWA_INSTALL_UNAVAILABLE_MESSAGE = 'Installation ist in diesem Browser gerade nicht verfügbar.';
   const DB_PATHS = Object.freeze({
     USERS: 'users',
     PUBLIC_PROFILES: 'publicProfiles',
@@ -1286,6 +1296,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     stats: {},
     lastSystemAlertTs: 0,
     devOverride: false,
+    installAvailable: false,
     online: navigator.onLine,
     booted: false,
   }, {
@@ -1296,6 +1307,62 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       emit('state', { key: p, old: old, new: v });
       return true;
     }
+  });
+
+  let deferredInstallPrompt = null;
+
+  function isStandaloneDisplayMode() {
+    const standaloneMedia = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    const iosStandalone = !!(window.navigator && window.navigator.standalone);
+    return standaloneMedia || iosStandalone;
+  }
+
+  function updateInstallAvailability(available) {
+    state.installAvailable = !!available && !isStandaloneDisplayMode();
+  }
+
+  function canPromptInstallApp() {
+    return !!deferredInstallPrompt && state.installAvailable && !isStandaloneDisplayMode();
+  }
+
+  async function promptInstallApp() {
+    if (!canPromptInstallApp()) {
+      toast(PWA_INSTALL_UNAVAILABLE_MESSAGE, 'info');
+      return;
+    }
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    updateInstallAvailability(false);
+    try {
+      await promptEvent.prompt();
+      if (promptEvent.userChoice) {
+        const choice = await promptEvent.userChoice.catch(() => null);
+        if (choice && choice.outcome === 'accepted') toast(PWA_INSTALLED_MESSAGE, 'success');
+      }
+    } catch (_) {
+      toast(PWA_INSTALL_UNAVAILABLE_MESSAGE, 'warn');
+    }
+  }
+
+  function renderInstallButton(className) {
+    return h('button', {
+      class: className,
+      type: 'button',
+      'aria-label': PWA_INSTALL_LABEL,
+      onclick: promptInstallApp
+    }, [icon('download'), h('span', { class: 'btn-label', text: PWA_INSTALL_LABEL })]);
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    if (typeof event.prompt !== 'function') return;
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallAvailability(true);
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    updateInstallAvailability(false);
+    toast(PWA_INSTALLED_MESSAGE, 'success');
   });
 
   // -----------------------------------------------------------------
@@ -1781,6 +1848,20 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
   function renderHeader() {
     const user = state.user || {};
+    const actions = [];
+    if (canPromptInstallApp()) actions.push(renderInstallButton('btn btn-success no-print'));
+    actions.push(
+      h('button', {
+        class: 'btn btn-ghost no-print',
+        'aria-label': 'Seite drucken',
+        onclick: () => window.print()
+      }, [icon('print'), h('span', { class: 'btn-label', text: 'Drucken' })]),
+      h('button', {
+        class: 'btn btn-ghost no-print',
+        'aria-label': 'Abmelden',
+        onclick: logout
+      }, [icon('right-from-bracket'), h('span', { class: 'btn-label', text: 'Logout' })])
+    );
     return h('header', { class: 'app-header', role: 'banner' }, [
       h('div', { class: 'brand' }, [
         h('div', { class: 'logo' }, [icon('church')]),
@@ -1789,18 +1870,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
           h('small', { class: 'brand-subtitle text-muted', text: user.displayName ? 'Angemeldet als ' + user.displayName : 'Ministranten-PWA' })
         ])
       ]),
-      h('div', { class: 'row-flex header-actions' }, [
-        h('button', {
-          class: 'btn btn-ghost no-print',
-          'aria-label': 'Seite drucken',
-          onclick: () => window.print()
-        }, [icon('print'), h('span', { class: 'btn-label', text: 'Drucken' })]),
-        h('button', {
-          class: 'btn btn-ghost no-print',
-          'aria-label': 'Abmelden',
-          onclick: logout
-        }, [icon('right-from-bracket'), h('span', { class: 'btn-label', text: 'Logout' })])
-      ])
+      h('div', { class: 'row-flex header-actions' }, actions)
     ]);
   }
 
@@ -1829,6 +1899,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     card.appendChild(h('div', { class: 'logo-lg' }, [icon('church')]));
     card.appendChild(h('h1', { text: 'Minis Wettstetten' }));
     card.appendChild(h('p', { class: 'sub', text: 'Dienstplan, Chat & mehr – für unsere Ministrantinnen und Ministranten.' }));
+    if (canPromptInstallApp()) {
+      card.appendChild(renderInstallButton('btn btn-success btn-block no-print'));
+    }
 
     if (state.view === VIEWS.DEV_LOGIN) {
       const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Entwickler-Schlüssel', placeholder: 'Entwickler-Schlüssel' });
@@ -2494,7 +2567,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 17. Reactivity – re-render on any state change
   // -----------------------------------------------------------------
   on('state', (evt) => {
-    if (['view','user','services','chatMessages','stats','users','privateUsers'].indexOf(evt.key) !== -1) {
+    if (['view','user','services','chatMessages','stats','users','privateUsers','installAvailable'].indexOf(evt.key) !== -1) {
       renderApp();
     }
   });
@@ -2520,7 +2593,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         );
         const manifest = {
           name: 'Minis Wettstetten', short_name: 'Minis',
+          id: './',
           start_url: '.', scope: '.', display: 'standalone',
+          display_override: ['standalone', 'minimal-ui', 'browser'],
+          prefer_related_applications: false,
           background_color: '#f2f5f8', theme_color: '#0066cc',
           lang: 'de', dir: 'ltr',
           icons: [{ src: iconSvg, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }]

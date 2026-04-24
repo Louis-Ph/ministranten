@@ -9,9 +9,12 @@ test.describe('PWA installability', () => {
     const json = await res.json();
     expect(json.name).toBe('Minis Wettstetten');
     expect(json.short_name).toBeTruthy();
+    expect(json.id).toBeTruthy();
     expect(json.start_url).toBeTruthy();
     expect(json.scope).toBeTruthy();
     expect(json.display).toBe('standalone');
+    expect(json.display_override).toEqual(expect.arrayContaining(['standalone']));
+    expect(json.prefer_related_applications).toBe(false);
     expect(Array.isArray(json.icons)).toBe(true);
     expect(json.icons.length).toBeGreaterThanOrEqual(2);
     const sizes = json.icons.map(i => i.sizes).join(' ');
@@ -54,5 +57,31 @@ test.describe('PWA installability', () => {
       return reg && (reg.active || reg.installing || reg.waiting) ? 'ok' : null;
     });
     expect(controller).toBe('ok');
+  });
+
+  test('native install prompt is exposed through an app button', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__minisPwaPromptCalled = false;
+      window.addEventListener('DOMContentLoaded', () => {
+        const event = new Event('beforeinstallprompt', { cancelable: true });
+        Object.defineProperties(event, {
+          prompt: {
+            value: async () => { window.__minisPwaPromptCalled = true; },
+            configurable: true
+          },
+          userChoice: {
+            value: Promise.resolve({ outcome: 'accepted', platform: 'web' }),
+            configurable: true
+          }
+        });
+        window.dispatchEvent(event);
+      });
+    });
+    await page.goto('/index.html?mock=1');
+    const installButton = page.getByRole('button', { name: /App installieren/i });
+    await expect(installButton).toBeVisible();
+    await installButton.click();
+    await expect.poll(() => page.evaluate(() => window.__minisPwaPromptCalled)).toBe(true);
+    await expect(installButton).toHaveCount(0);
   });
 });
