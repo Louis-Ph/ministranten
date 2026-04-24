@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import cloud from '../../api/_lib/cloud.js';
+import cloud from '../../api/_lib/cloud.ts';
 
 const {
   assertReadAllowed,

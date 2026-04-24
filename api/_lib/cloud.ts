@@ -22,6 +22,9 @@ const REST_TABLES = Object.freeze({
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 class HttpError extends Error {
+  status: number;
+  code: string;
+
   constructor(status, message, code) {
     super(message);
     this.status = status;
@@ -29,7 +32,7 @@ class HttpError extends Error {
   }
 }
 
-function readEnv(name, aliases) {
+function readEnv(name, aliases = []) {
   const keys = [name].concat(aliases || []);
   for (const key of keys) {
     if (process.env[key]) return process.env[key];
@@ -201,7 +204,7 @@ function isUuid(value) {
   return UUID_RE.test(String(value || ''));
 }
 
-function msToIso(value, fallback) {
+function msToIso(value, fallback = Date.now()) {
   const ms = Number(value);
   if (Number.isFinite(ms) && ms > 0) return new Date(ms).toISOString();
   return new Date(fallback == null ? Date.now() : fallback).toISOString();
@@ -455,8 +458,9 @@ async function replaceServices(services) {
   const serviceRows = [];
   const attendeeRows = [];
   for (const [serviceId, service] of Object.entries(services || {})) {
-    serviceRows.push(serviceRow(serviceId, service));
-    for (const attendee of Object.values(service.attendees || {})) {
+    const serviceModel: any = service;
+    serviceRows.push(serviceRow(serviceId, serviceModel));
+    for (const attendee of Object.values(serviceModel.attendees || {}) as any[]) {
       if (isUuid(attendee && attendee.uid)) attendeeRows.push(attendeeRow(serviceId, attendee));
     }
   }
@@ -493,10 +497,11 @@ async function upsertService(serviceId, service, replaceAttendees) {
   await upsertRows(REST_TABLES.SERVICES, serviceRow(serviceId, service), 'service_id');
   if (!replaceAttendees) return;
   await deleteRows(REST_TABLES.ATTENDEES, eq('service_id', serviceId));
-  const rows = Object.values(service.attendees || {})
+  const rows = Object.values((service as any).attendees || {}) as any[];
+  const attendeeRows = rows
     .filter(attendee => isUuid(attendee && attendee.uid))
     .map(attendee => attendeeRow(serviceId, attendee));
-  if (rows.length) await upsertRows(REST_TABLES.ATTENDEES, rows, 'service_id,user_id');
+  if (attendeeRows.length) await upsertRows(REST_TABLES.ATTENDEES, attendeeRows, 'service_id,user_id');
 }
 
 async function updateServiceField(serviceId, field, value) {
@@ -562,10 +567,11 @@ async function writeDataPath(path, value) {
     if (field === 'attendees') {
       if (!childId) {
         await deleteRows(REST_TABLES.ATTENDEES, eq('service_id', id));
-        const rows = Object.values(value || {})
+        const rows = Object.values(value || {}) as any[];
+        const attendeeRows = rows
           .filter(attendee => isUuid(attendee && attendee.uid))
           .map(attendee => attendeeRow(id, attendee));
-        if (rows.length) await upsertRows(REST_TABLES.ATTENDEES, rows, 'service_id,user_id');
+        if (attendeeRows.length) await upsertRows(REST_TABLES.ATTENDEES, attendeeRows, 'service_id,user_id');
         return;
       }
       if (value === null) return deleteRows(REST_TABLES.ATTENDEES, eq('service_id', id) + '&' + eq('user_id', childId));

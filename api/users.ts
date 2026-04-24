@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
     if (password.length < 8) return sendJson(res, 400, { error: 'Mot de passe trop court.', code: 'weak_password' });
 
     const users = root.users || {};
-    if (Object.values(users).some(user => user && user.username === username)) {
+    if ((Object.values(users) as any[]).some(user => user && user.username === username)) {
       return sendJson(res, 409, { error: 'Nom utilisateur deja utilise.', code: 'username_taken' });
     }
 

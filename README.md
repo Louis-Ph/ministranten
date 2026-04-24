@@ -2,7 +2,7 @@
 
 > Dienstplan, Chat und Verwaltung für die Ministrantinnen und Ministranten der
 > Pfarrei Wettstetten. Installierbare PWA mit Vanilla JavaScript, Vercel API
-> Routes, Supabase Auth und Supabase Postgres.
+> Routes in TypeScript, Supabase Auth und Supabase Postgres.
 
 <p align="left">
   <a href="./LICENSE"><img alt="Lizenz: MIT" src="https://img.shields.io/badge/Lizenz-MIT-0066cc?style=flat-square"></a>
@@ -22,7 +22,7 @@ aus dem Browser in eine Datenbank. Der Cloud-Betrieb ist jetzt so getrennt:
 | Ebene | Zweck |
 |-------|-------|
 | `index.html` | PWA, UI, Rollenlogik, Mock/SQLite-Fallback |
-| `api/*` | Vercel Node.js API Routes, Auth- und Daten-Gateway |
+| `api/*` | Vercel Node.js API Routes in TypeScript, Auth- und Daten-Gateway |
 | `supabase/schema.sql` | Supabase Postgres Schema in 3NF mit RLS |
 | `.env.example` | Dokumentierte Runtime-Variablen ohne echte Secrets |
 | `vercel.json` | Vercel Routing und Sicherheitsheader |
@@ -97,6 +97,7 @@ vercel dev
 
 ```bash
 npm run test:unit
+npm run typecheck
 npm run test:e2e
 npm run test
 ```

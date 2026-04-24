@@ -16,6 +16,7 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - OAuth-Start für Google, GitHub und Microsoft vorbereitet; Apple bleibt
   kostenbewusstes Opt-in.
 - Cloud-Datenzugriff läuft über `/api/data` mit serverseitiger Rollenprüfung.
+- Vercel API Routes sind auf TypeScript migriert.
 
 ### Hinzugefügt
 

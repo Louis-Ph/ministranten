@@ -35,12 +35,15 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install chromium",
-    "test": "npm run test:unit && npm run test:e2e"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
+    "@types/node": "^25.6.0",
     "happy-dom": "^20.9.0",
     "http-server": "^14.1.1",
+    "typescript": "^6.0.3",
     "vitest": "^2.1.0"
   }
 }
