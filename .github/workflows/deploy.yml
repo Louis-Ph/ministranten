@@ -25,12 +25,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Pages konfigurieren (und bei Bedarf aktivieren)
+      # Einmalige Ersteinrichtung nötig:
+      #   Repo → Settings → Pages → Build and deployment → Source: GitHub Actions
+      # Der Standard-GITHUB_TOKEN darf ein Pages-Projekt nicht selbst anlegen;
+      # `enablement: true` funktioniert nur mit einem PAT/App-Token.
+      - name: Pages konfigurieren
         uses: actions/configure-pages@v6
-        with:
-          # Aktiviert GitHub Pages automatisch, falls noch nicht eingerichtet.
-          # Erfordert die Permission `pages: write` (oben deklariert).
-          enablement: true
 
       - name: Artefakt bündeln (statische Dateien)
         uses: actions/upload-pages-artifact@v5
