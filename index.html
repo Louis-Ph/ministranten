@@ -155,15 +155,9 @@ a:hover { text-decoration: underline; }
   margin: 0 auto;
 }
 
-@media (min-width: 960px) {
-  #app { padding-left: 260px; }
-  .bottom-nav { left: 0; right: auto; top: 0; bottom: 0; width: 240px; height: 100vh; flex-direction: column; border-top: none; border-right: 1px solid var(--c-border); padding: 80px 14px 14px; justify-content: flex-start; align-items: stretch; gap: 6px; }
-  .bottom-nav .nav-btn { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 12px 14px; font-size: 15px; border-radius: 12px; }
-  .bottom-nav .nav-btn i { font-size: 18px; }
-  .bottom-nav .nav-btn span { font-size: 15px; }
-  .app-header { position: fixed; top: 0; left: 0; right: 0; }
-  .main-content { padding-top: calc(var(--header-h) + 16px); padding-bottom: 24px; max-width: 1120px; margin-left: 260px; margin-right: auto; }
-}
+/* Das Desktop-Override für Header, Navigation und Content steht weiter unten,
+   nach den mobilen Basisregeln, damit der Kaskaden-Reihenfolge-Konflikt auf
+   Viewports ≥ 960 px gelöst wird (siehe Abschnitt „Concurrent UI Design“). */
 
 /* === Login / Welcome === */
 
@@ -450,6 +444,49 @@ a:hover { text-decoration: underline; }
 .nav-btn.active { color: var(--c-primary); background: #eaf3ff; }
 .nav-btn:hover:not(.active) { color: var(--c-text); }
 
+/* Desktop-Layout: feste Sidebar statt Bottom-Navigation. Dieses Block steht
+   bewusst nach den Basisregeln, damit er sie auf Viewports ≥ 960 px wirklich
+   überschreibt (gleiche Selektor-Spezifität). */
+@media (min-width: 960px) {
+  #app { padding-left: 260px; }
+  .bottom-nav {
+    left: 0; right: auto; top: 0; bottom: 0;
+    width: 240px; height: 100vh;
+    flex-direction: column;
+    border-top: none;
+    border-right: 1px solid var(--c-border);
+    padding: calc(var(--header-h) + 16px) 14px 14px;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 6px;
+    box-shadow: 2px 0 12px rgba(29,53,87,0.05);
+  }
+  .bottom-nav .nav-btn {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 12px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+    min-height: 44px;
+  }
+  .bottom-nav .nav-btn i { font-size: 18px; }
+  .bottom-nav .nav-btn span { font-size: 15px; }
+  .app-header {
+    position: fixed;
+    top: 0; left: 240px; right: 0;
+    width: auto;
+  }
+  .main-content {
+    padding-top: calc(var(--header-h) + 16px);
+    padding-bottom: 24px;
+    padding-left: 24px;
+    padding-right: 24px;
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+}
+
 /* === Chat === */
 
 .chat-wrap { display: flex; flex-direction: column; gap: 10px; }
@@ -648,7 +685,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     appId: "1:418982681815:web:2fa96d0bc47d5b3df16492"
   };
 
-  let db, auth, messaging;
+  let db, auth, messaging, createUserOnBackend;
 
   function createFirebaseBackend() {
     if (typeof firebase === 'undefined') {
@@ -659,7 +696,30 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     const _auth = firebase.auth();
     let _messaging = null;
     try { _messaging = firebase.messaging(); } catch (_) { _messaging = null; }
-    return { db: _db, auth: _auth, messaging: _messaging };
+    async function createUser(username, password, profile) {
+      const email = usernameToEmail(username);
+      // Sekundäre App, damit das Erstellen eines Users die aktive Admin-Session
+      // nicht überschreibt (createUserWithEmailAndPassword meldet sonst um).
+      let secondary = firebase.apps.find(a => a.name === '__userCreate');
+      if (!secondary) secondary = firebase.initializeApp(firebaseConfig, '__userCreate');
+      try {
+        const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
+        const uid = cred.user.uid;
+        await _db.ref('users/' + uid).set({
+          username,
+          email,
+          displayName: (profile && profile.displayName) || username,
+          role: (profile && profile.role) || 'user',
+          mustChangePassword: profile && profile.mustChangePassword === false ? false : true,
+          createdAt: Date.now()
+        });
+        await secondary.auth().signOut();
+        return { uid, username, email };
+      } finally {
+        try { await secondary.delete(); } catch (_) { /* already deleted */ }
+      }
+    }
+    return { db: _db, auth: _auth, messaging: _messaging, createUser };
   }
 
   // -----------------------------------------------------------------
@@ -1059,20 +1119,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     const pw1 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Neues Passwort', minlength: '8', required: true });
     const pw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Passwort bestätigen', minlength: '8', required: true });
     const msg = h('p', { class: 'text-muted', text: 'Aus Sicherheitsgründen muss dein Passwort jetzt geändert werden. Wähle ein neues Passwort mit mindestens 8 Zeichen.' });
-    const btn = h('button', { class: 'btn btn-primary', text: 'Passwort setzen' });
-    const rec = openModal({
-      title: 'Passwort ändern (Pflicht)',
-      content: [
-        msg,
-        h('div', { class: 'field' }, [h('label', { text: 'Neues Passwort' }), pw1]),
-        h('div', { class: 'field' }, [h('label', { text: 'Bestätigung' }), pw2])
-      ],
-      actions: [btn],
-      forced: true,
-      dismissible: false
-    });
-    rec.forcedLocked = true;
-    btn.addEventListener('click', async () => {
+    const btn = h('button', { type: 'submit', class: 'btn btn-primary', text: 'Passwort setzen' });
+
+    async function submit(e) {
+      if (e) e.preventDefault();
       if (pw1.value !== pw2.value) return toast('Passwörter stimmen nicht überein.', 'error');
       if (!validPassword(pw1.value)) return toast('Mindestens 8 Zeichen.', 'error');
       btn.disabled = true;
@@ -1083,11 +1133,32 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         rec.close();
         state.user = Object.assign({}, state.user, { mustChangePassword: false });
         toast('Passwort aktualisiert.', 'success');
-      } catch (e) {
+      } catch (err) {
         btn.disabled = false;
-        toast('Fehler: ' + e.message, 'error');
+        toast('Fehler: ' + err.message, 'error');
       }
+    }
+
+    const form = h('form', {
+      class: 'stack',
+      onsubmit: submit,
+      novalidate: true,
+      'aria-label': 'Pflicht-Passwortwechsel',
+      autocomplete: 'off'
+    }, [
+      msg,
+      h('div', { class: 'field' }, [h('label', { text: 'Neues Passwort' }), pw1]),
+      h('div', { class: 'field' }, [h('label', { text: 'Bestätigung' }), pw2]),
+      h('div', { class: 'modal-actions' }, [btn])
+    ]);
+
+    const rec = openModal({
+      title: 'Passwort ändern (Pflicht)',
+      content: form,
+      forced: true,
+      dismissible: false
     });
+    rec.forcedLocked = true;
   }
 
   // -----------------------------------------------------------------
@@ -1805,11 +1876,79 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     ]));
 
     section.appendChild(h('div', { class: 'card' }, [
-      h('h3', { class: 'mt-0', text: 'Benutzer-Verwaltung' }),
+      h('div', { class: 'row-flex', style: { justifyContent: 'space-between' } }, [
+        h('h3', { class: 'mt-0', text: 'Benutzer-Verwaltung' }),
+        h('button', { class: 'btn btn-primary', onclick: openCreateUserModal }, [icon('user-plus'), 'Neuer Benutzer'])
+      ]),
       renderUserList()
     ]));
 
     return section;
+  }
+
+  function openCreateUserModal() {
+    const username = h('input', { class: 'input', type: 'text', autocomplete: 'username', required: true, 'aria-label': 'Benutzername', placeholder: 'z. B. max' });
+    const displayName = h('input', { class: 'input', type: 'text', autocomplete: 'name', 'aria-label': 'Anzeigename', placeholder: 'Max Mustermann' });
+    const password = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', required: true, minlength: '8', 'aria-label': 'Initiales Passwort' });
+    const role = h('select', { class: 'select', 'aria-label': 'Rolle' }, [
+      h('option', { value: 'user', selected: true }, ['User (Mini)']),
+      h('option', { value: 'admin' }, ['Admin (Obermini)']),
+      h('option', { value: 'dev' }, ['Dev (Entwickler)'])
+    ]);
+    const mustChange = h('input', { type: 'checkbox', id: 'cb-must-change', checked: true });
+
+    const submitBtn = h('button', { type: 'submit', class: 'btn btn-primary' }, [icon('user-plus'), 'Anlegen']);
+    const cancelBtn = h('button', { type: 'button', class: 'btn btn-ghost', onclick: () => rec.close() }, ['Abbrechen']);
+
+    async function submit(e) {
+      if (e) e.preventDefault();
+      const u = String(username.value || '').trim().toLowerCase();
+      const p = password.value;
+      if (!validUsername(u)) return toast('Ungültiger Benutzername (nur a-z 0-9 . _ -, 2–40 Zeichen).', 'error');
+      if (!validPassword(p)) return toast('Passwort muss mindestens 8 Zeichen haben.', 'error');
+      if (typeof createUserOnBackend !== 'function') {
+        return toast('Backend unterstützt keine Benutzer-Erstellung.', 'error');
+      }
+      submitBtn.disabled = true;
+      try {
+        await createUserOnBackend(u, p, {
+          displayName: sanitizePlainText(displayName.value).slice(0, 60) || u,
+          role: role.value,
+          mustChangePassword: !!mustChange.checked
+        });
+        toast('Benutzer „' + u + '" angelegt.', 'success');
+        rec.close();
+      } catch (err) {
+        submitBtn.disabled = false;
+        toast(mapAuthError(err), 'error');
+      }
+    }
+
+    const form = h('form', {
+      class: 'stack',
+      onsubmit: submit,
+      novalidate: true,
+      'aria-label': 'Benutzer anlegen',
+      autocomplete: 'off'
+    }, [
+      h('p', { class: 'text-muted', text: 'Das initiale Passwort wird dem Benutzer übergeben. Bei aktivem „Passwort-Zwang" muss er es beim ersten Login ändern.' }),
+      h('div', { class: 'field' }, [h('label', { text: 'Benutzername' }), username,
+        h('div', { class: 'hint', text: 'Der Login-Name. Daraus wird ' + MAIL_DOMAIN + '-Mail generiert.' })]),
+      h('div', { class: 'field' }, [h('label', { text: 'Anzeigename (optional)' }), displayName]),
+      h('div', { class: 'field' }, [h('label', { text: 'Initiales Passwort' }), password]),
+      h('div', { class: 'field' }, [h('label', { text: 'Rolle' }), role]),
+      h('div', { class: 'checkbox-row' }, [
+        mustChange, h('label', { for: 'cb-must-change', text: 'Passwortwechsel beim ersten Login erzwingen' })
+      ]),
+      h('div', { class: 'modal-actions' }, [cancelBtn, submitBtn])
+    ]);
+
+    const rec = openModal({
+      title: 'Neuer Benutzer',
+      content: form,
+      dismissible: true
+    });
+    setTimeout(() => username.focus(), 0);
   }
 
   function renderUserList() {
@@ -1927,11 +2066,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     renderApp();
     try {
       const chosen = ACTIVE_BACKEND;
-      ({ db, auth, messaging } = await initBackend(chosen));
+      ({ db, auth, messaging, createUser: createUserOnBackend } = await initBackend(chosen));
     } catch (e) {
       console.error('Backend-Init fehlgeschlagen', e);
       toast('Backend "' + BACKEND_LABELS[ACTIVE_BACKEND] + '" nicht verfügbar. Lokales Mock wird verwendet.', 'error');
-      ({ db, auth, messaging } = createMockBackend());
+      ({ db, auth, messaging, createUser: createUserOnBackend } = createMockBackend());
       ACTIVE_BACKEND = BACKENDS.MOCK;
     }
     registerServiceWorker();
@@ -2005,10 +2144,27 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       },
       async signOut() { authState.currentUser = null; authState.listeners.forEach(cb => cb(null)); }
     };
+    async function createUser(username, password, profile) {
+      if (!validUsername(username)) throw new Error('Ungültiger Benutzername.');
+      if (!validPassword(password)) throw new Error('Passwort muss mindestens 8 Zeichen haben.');
+      const uid = 'mock-' + username;
+      if (pathGet('/users/' + uid)) throw new Error('Benutzername bereits vergeben.');
+      await ref('users/' + uid).set({
+        username,
+        email: usernameToEmail(username),
+        displayName: (profile && profile.displayName) || username,
+        role: (profile && profile.role) || 'user',
+        mustChangePassword: !(profile && profile.mustChangePassword === false),
+        createdAt: Date.now()
+      });
+      return { uid, username };
+    }
+
     return {
       db: { ref },
       auth: mockAuth,
-      messaging: null
+      messaging: null,
+      createUser
     };
   }
 
@@ -2450,10 +2606,35 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       }
     };
 
+    async function createUser(username, password, profile) {
+      if (!validUsername(username)) throw new Error('Ungültiger Benutzername.');
+      if (!validPassword(password)) throw new Error('Passwort muss mindestens 8 Zeichen haben.');
+      if (firstRow('SELECT 1 AS x FROM users WHERE username = ? OR email = ?', [username, usernameToEmail(username)])) {
+        throw new Error('Benutzername bereits vergeben.');
+      }
+      const salt = randomSaltHex();
+      const hash = await pbkdf2Hash(password, salt);
+      const uid = 'u-' + username + '-' + Date.now().toString(36);
+      sqldb.run(
+        'INSERT INTO users (uid, username, email, passwordHash, passwordSalt, displayName, role, mustChangePassword, createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
+        [
+          uid, username, usernameToEmail(username), hash, salt,
+          (profile && profile.displayName) || username,
+          (profile && profile.role) || 'user',
+          profile && profile.mustChangePassword === false ? 0 : 1,
+          Date.now()
+        ]
+      );
+      schedulePersist();
+      notifyPath('/users/' + uid);
+      return { uid, username };
+    }
+
     return {
       db: { ref },
       auth: sqliteAuth,
       messaging: null,
+      createUser,
       __sqlite: {
         engine: sqldb,
         persistNow: () => idbPut('main', sqldb.export()),

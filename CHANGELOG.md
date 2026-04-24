@@ -6,8 +6,30 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- **Desktop-Layout kaputt** – Der `@media (min-width: 960px)`-Block stand im
+  Stylesheet vor den Basisregeln für `.bottom-nav`, `.app-header` und
+  `.main-content`; bei gleicher Spezifität gewann damit die (später
+  deklarierte) Basisregel, sodass auf ≥ 960 px die Sidebar als 240×72-Miniblock
+  am Header klebte und ein horizontaler Scroll entstand. Der Desktop-Override
+  wurde hinter die Basisregeln verschoben.
+- **Pflicht-Passwortwechsel erforderte zwei Klicks** – Der Button hatte kein
+  explizites `type` und landete damit auf `submit`, ohne dass ein umgebendes
+  `<form>` existierte; Browser verschluckten den ersten Klick. Jetzt ist der
+  gesamte Dialog in ein `<form novalidate onsubmit>` eingebettet, die Enter-
+  Taste submittet ebenfalls.
+
 ### Hinzugefügt
 
+- **Benutzer anlegen (Dev-Ansicht)** – Neuer Button „Neuer Benutzer" mit
+  Modal (Benutzername, Anzeigename, initiales Passwort, Rolle,
+  Passwortwechsel erzwingen). Jedes Backend liefert eine eigene
+  `createUser`-Implementierung:
+  - **Firebase**: zweite App-Instanz (`__userCreate`), damit die aktive
+    Admin-Session nicht überschrieben wird.
+  - **SQLite**: PBKDF2-Hash + Salz, `INSERT` mit Uniqueness-Check.
+  - **Mock**: direkter Write in den In-Memory-Store.
 - **SQLite-Backend** (`sql.js`-WASM + IndexedDB-Persistenz) als administrativ
   wählbare Alternative zur Firebase-Verbindung. Relationales Schema mit
   Indizes, PBKDF2-gehashten Passwörtern und Seed-Admin-Account beim ersten
