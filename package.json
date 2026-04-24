@@ -18,14 +18,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/CHANGEME/ministranten.git"
+    "url": "https://github.com/Louis-Ph/ministranten.git"
   },
   "bugs": {
-    "url": "https://github.com/CHANGEME/ministranten/issues"
+    "url": "https://github.com/Louis-Ph/ministranten/issues"
   },
-  "homepage": "https://github.com/CHANGEME/ministranten#readme",
+  "homepage": "https://github.com/Louis-Ph/ministranten#readme",
   "engines": {
-    "node": ">=20",
+    "node": "24.x",
     "npm": ">=10"
   },
   "scripts": {
