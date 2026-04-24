@@ -30,8 +30,5 @@ coverage/
 .nyc_output/
 .vitest-cache/
 
-# Firebase
-.firebase/
-firebase-debug.log
-firestore-debug.log
-database-debug.log
+# Cloud tooling
+.vercel/

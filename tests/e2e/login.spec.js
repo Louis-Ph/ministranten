@@ -22,7 +22,7 @@ test.describe('Login screen', () => {
     await expect(skip).toBeVisible();
   });
 
-  test('dev masterkey unlocks the app (no Firebase call)', async ({ page }) => {
+  test('dev masterkey unlocks the app without a cloud auth call', async ({ page }) => {
     await page.getByRole('button', { name: /Entwickler Zugang/i }).click();
     await page.getByLabel('Entwickler-Schlüssel').fill('miniswettapp');
     await page.getByRole('button', { name: /Entsperren/i }).click();
@@ -36,5 +36,25 @@ test.describe('Login screen', () => {
     await page.getByRole('button', { name: /Entsperren/i }).click();
     await expect(page.getByText(/Falscher Entwickler-Schlüssel/i)).toBeVisible();
     await expect(page.getByLabel('Entwickler-Schlüssel')).toBeVisible();
+  });
+
+  test('cloud login offers configured OAuth providers', async ({ page }) => {
+    await page.route('**/api/config', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        configured: true,
+        auth: {
+          providers: ['google', 'github', 'azure'],
+          allowedEmailDomains: ''
+        }
+      })
+    }));
+    await page.goto('/index.html?backend=cloud');
+    await expect(page.getByText(/Oder sicher per OAuth anmelden/i)).toBeVisible();
+    for (const name of ['Google', 'GitHub', 'Microsoft']) {
+      await expect(page.getByRole('button', { name })).toBeVisible();
+    }
+    await expect(page.getByRole('button', { name: 'Apple' })).toHaveCount(0);
   });
 });

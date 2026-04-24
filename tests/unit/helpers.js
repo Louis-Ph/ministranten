@@ -7,22 +7,12 @@ const INDEX_HTML = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 
 
 /**
  * Load the monolithic index.html into the current happy-dom window.
- * Forces `?mock=1` via history API so the app uses its in-memory Firebase stand-in.
+ * Forces `?mock=1` via history API so the app uses its in-memory backend.
  * Returns `window.__MinisTest`.
  */
 export async function loadApp() {
   const doc = globalThis.document;
   const win = globalThis.window;
-
-  // Provide a Firebase global for the defensive branch in the inline script.
-  if (!win.firebase) {
-    win.firebase = {
-      initializeApp: () => {},
-      database: () => ({ ref: () => ({ on: () => {}, once: async () => ({ val: () => null }) }) }),
-      auth: () => ({ onAuthStateChanged: () => {}, signInWithEmailAndPassword: async () => ({}), signOut: async () => {}, currentUser: null }),
-      messaging: () => null
-    };
-  }
 
   // Stub service worker – happy-dom doesn't implement it.
   if (!win.navigator.serviceWorker) {

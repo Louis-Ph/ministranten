@@ -18,7 +18,7 @@
 - [ ] Ich habe neue Tests ergänzt, wo es sinnvoll ist.
 - [ ] Bei UI-Änderungen: Screenshots vor/nach sind beigefügt.
 - [ ] Bei neuen Nutzer-Eingaben: Validierung und `textContent`-Nutzung geprüft.
-- [ ] Firebase-Regeln (`firebase.rules.json`) wurden, falls nötig, angepasst.
+- [ ] Cloud-Schema/API-Autorisierung wurden, falls nötig, angepasst.
 - [ ] `CHANGELOG.md` wurde ergänzt (sofern nutzersichtbar).
 
 ## Bezug

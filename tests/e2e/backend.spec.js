@@ -15,7 +15,7 @@ test.describe('Backend selector (Dev-Tools)', () => {
     await expect(page.getByRole('heading', { name: /Backend \/ Verbindung/i })).toBeVisible();
     await expect(page.getByText(/Derzeit aktiv:/i)).toBeVisible();
     const group = page.getByRole('radiogroup', { name: /Backend auswählen/i });
-    await expect(group.getByLabel(/Firebase/)).toBeVisible();
+    await expect(group.getByLabel(/Vercel \+ Supabase/)).toBeVisible();
     await expect(group.getByLabel(/SQLite/)).toBeVisible();
     await expect(group.getByLabel(/Mock/)).toBeVisible();
   });

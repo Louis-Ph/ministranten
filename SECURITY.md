@@ -34,7 +34,7 @@ Relevante Meldungen betreffen unter anderem:
 
 - Cross-Site-Scripting (XSS), CSRF, Clickjacking
 - Authentifizierungs- und Autorisierungsschwächen
-- Umgehung der Firebase-Regeln
+- Umgehung der Vercel-API-Autorisierung oder Supabase-RLS
 - Preisgabe personenbezogener Daten entgegen der DSGVO
 - Schwachstellen in eingebundenen CDN-Ressourcen
 
@@ -42,7 +42,7 @@ Nicht im Umfang:
 
 - Social-Engineering-Angriffe gegen Personen des Teams
 - DoS-/DDoS-Tests gegen Produktivumgebungen
-- Selbst gehostete Forks, bei denen Firebase-Keys eigenständig vergeben
+- Selbst gehostete Forks, bei denen Cloud-Secrets eigenständig offengelegt
   wurden
 
 ## Umgang mit Meldungen

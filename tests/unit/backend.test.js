@@ -6,17 +6,17 @@ beforeAll(async () => { T = await loadApp(); });
 
 describe('backend settings', () => {
   it('exposes the three backend identifiers', () => {
-    expect(T.BACKENDS).toMatchObject({ FIREBASE: 'firebase', SQLITE: 'sqlite', MOCK: 'mock' });
+    expect(T.BACKENDS).toMatchObject({ CLOUD: 'cloud', SQLITE: 'sqlite', MOCK: 'mock' });
   });
   it('provides a human-readable label for each backend', () => {
-    expect(T.BACKEND_LABELS.firebase).toMatch(/Firebase/);
+    expect(T.BACKEND_LABELS.cloud).toMatch(/Vercel \+ Supabase/);
     expect(T.BACKEND_LABELS.sqlite).toMatch(/SQLite/);
     expect(T.BACKEND_LABELS.mock).toMatch(/Mock/);
   });
   it('writeBackendSetting accepts each valid backend without throwing', () => {
     // happy-dom provides no real localStorage; the function is also called in the
     // e2e tests which run in a real browser – so we simply assert it does not throw.
-    expect(() => T.writeBackendSetting(T.BACKENDS.FIREBASE)).not.toThrow();
+    expect(() => T.writeBackendSetting(T.BACKENDS.CLOUD)).not.toThrow();
     expect(() => T.writeBackendSetting(T.BACKENDS.SQLITE)).not.toThrow();
     expect(() => T.writeBackendSetting(T.BACKENDS.MOCK)).not.toThrow();
   });

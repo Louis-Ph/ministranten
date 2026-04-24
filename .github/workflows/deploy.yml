@@ -1,42 +1,43 @@
-name: Deploy to GitHub Pages
+name: Deploy to Vercel
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: vercel-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Veröffentlichen
+    name: Production deployment
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # Einmalige Ersteinrichtung nötig:
-      #   Repo → Settings → Pages → Build and deployment → Source: GitHub Actions
-      # Der Standard-GITHUB_TOKEN darf ein Pages-Projekt nicht selbst anlegen;
-      # `enablement: true` funktioniert nur mit einem PAT/App-Token.
-      - name: Pages konfigurieren
-        uses: actions/configure-pages@v6
-
-      - name: Artefakt bündeln (statische Dateien)
-        uses: actions/upload-pages-artifact@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          path: .
+          node-version: 20
+          cache: npm
 
-      - name: Deployment
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy prebuilt artifact
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

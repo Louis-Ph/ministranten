@@ -1,311 +1,136 @@
 # Minis Wettstetten
 
 > Dienstplan, Chat und Verwaltung für die Ministrantinnen und Ministranten der
-> Pfarrei Wettstetten. Eine installierbare Progressive Web App in einer einzigen
-> Datei – gebaut mit Vanilla JavaScript und Firebase Compat v9.
+> Pfarrei Wettstetten. Installierbare PWA mit Vanilla JavaScript, Vercel API
+> Routes, Supabase Auth und Supabase Postgres.
 
 <p align="left">
   <a href="./LICENSE"><img alt="Lizenz: MIT" src="https://img.shields.io/badge/Lizenz-MIT-0066cc?style=flat-square"></a>
   <img alt="PWA" src="https://img.shields.io/badge/PWA-installierbar-0066cc?style=flat-square">
   <img alt="Vanilla JS" src="https://img.shields.io/badge/Vanilla%20JS-ES2020%2B-1d3557?style=flat-square">
-  <img alt="Firebase" src="https://img.shields.io/badge/Firebase-9.0.0%20compat-e63946?style=flat-square">
+  <img alt="Vercel" src="https://img.shields.io/badge/Deploy-Vercel-1d3557?style=flat-square">
+  <img alt="Supabase" src="https://img.shields.io/badge/DB-Supabase%20Postgres-00cc88?style=flat-square">
   <img alt="WCAG 2.2 AA" src="https://img.shields.io/badge/WCAG%202.2-AA-00cc88?style=flat-square">
-  <img alt="Single File" src="https://img.shields.io/badge/Architektur-Single%20File-1d3557?style=flat-square">
 </p>
-
----
-
-## Inhaltsverzeichnis
-
-1. [Überblick](#überblick)
-2. [Funktionen](#funktionen)
-3. [Architektur](#architektur)
-4. [Voraussetzungen](#voraussetzungen)
-5. [Schnellstart](#schnellstart)
-6. [Entwicklung & lokale Ausführung](#entwicklung--lokale-ausführung)
-7. [Tests](#tests)
-8. [Deployment](#deployment)
-9. [Sicherheit](#sicherheit)
-10. [Barrierefreiheit](#barrierefreiheit)
-11. [Druckansicht](#druckansicht)
-12. [Datenmodell](#datenmodell)
-13. [Mitwirken](#mitwirken)
-14. [Lizenz](#lizenz)
-
----
-
-## Überblick
-
-**Minis Wettstetten** ist eine clientseitige Progressive Web App, die den
-kompletten Ablauf eines Ministranten-Teams abbildet: Gottesdienstplanung mit
-Fristen und Ersatzsuche, Gruppenchat mit automatischen Systemnachrichten,
-Punktesystem, Benutzerverwaltung und Datenbank-Backup.
-
-Die gesamte Anwendung besteht aus einer einzigen `index.html`. Sie benötigt
-keinen Build-Schritt, keine Abhängigkeiten im Produktivbetrieb und kann direkt
-über GitHub Pages gehostet werden. Das Backend (Auth, Realtime Database,
-Cloud Messaging) wird von Firebase bereitgestellt.
-
-## Funktionen
-
-- **Rollenmodell** – Ministrant (User), Obermini (Admin), Entwickler (Dev) mit
-  abgestuften Rechten und ARIA-konformer Rollenkennzeichnung.
-- **Dienstplaner** – Termine mit Titel, Beschreibung, Mindest-Teilnehmerzahl,
-  Farbakzent und Abmeldefrist in Tagen.
-- **Serien-Anlage „3 Monate“** – Eine Checkbox legt 12 aufeinanderfolgende
-  Wochen-Termine atomar via `Promise.all` an.
-- **Ein- und Austragen** – Namens-Pills direkt auf der Karte, Mindest-Quote
-  sichtbar, eigene Teilnahme farblich hervorgehoben.
-- **Ersatzsuche** – Austragen nach Ablauf der Frist löst einen Warndialog, eine
-  rote Systemnachricht im Chat, einen Badge „ERSATZ GESUCHT“ und eine rot
-  pulsierende Karte aus; die Statistik `lateCancelled` wird erhöht.
-- **Statistik & Leaderboard** – Zähler `attended` / `cancelled` /
-  `lateCancelled`, sortierbar, druckfähig.
-- **Globaler Chat** – `limitToLast(40)`, Systemnachrichten visuell abgehoben,
-  Auto-Hinweis-Toast bei Systemmeldungen jünger als zwei Stunden.
-- **Push-Benachrichtigungen** – Firebase Cloud Messaging mit Token-Speicherung
-  pro Benutzer.
-- **Passwort-Zwang** – Unschließbares Vollbild-Modal bei
-  `mustChangePassword: true`; freiwilliger Wechsel jederzeit im Profil.
-- **DB-Backup** – Export des kompletten RTDB-Roots als JSON; Import mit
-  Bestätigungs-Modal (nur für Dev).
-- **PWA** – Installierbar, offlinefähig, Service Worker als Blob-URL im selben
-  Dokument registriert.
-- **Backends umschaltbar** – Firebase (Cloud), **SQLite lokal** (sql.js WASM,
-  IndexedDB-Persistenz) oder Mock im Arbeitsspeicher; die Auswahl erfolgt im
-  Dev-Bereich und wird im Browser gespeichert.
-- **Intergenerationelles UI** – Glassmorphismus-Pro-Tool-Look statt
-  kindlicher Ästhetik, responsiv vom Smartphone bis zum Desktop.
 
 ## Architektur
 
-### Einzige Datei, klare Trennung
+Die App ist weiterhin bewusst klein und direkt: `index.html` enthält die PWA,
+die Views und die Businesslogik. Produktivdaten laufen aber nicht mehr direkt
+aus dem Browser in eine Datenbank. Der Cloud-Betrieb ist jetzt so getrennt:
 
+| Ebene | Zweck |
+|-------|-------|
+| `index.html` | PWA, UI, Rollenlogik, Mock/SQLite-Fallback |
+| `api/*` | Vercel Node.js API Routes, Auth- und Daten-Gateway |
+| `supabase/schema.sql` | Supabase Postgres Tabelle `public.app_state` mit RLS |
+| `.env.example` | Dokumentierte Runtime-Variablen ohne echte Secrets |
+| `vercel.json` | Vercel Routing und Sicherheitsheader |
+
+Der Browser sieht keine Datenbank-Passwörter und keinen Service-Role-Key.
+Schreib- und Lesezugriffe gehen über `/api/data`, `/api/users` und
+`/api/auth/*`; dort werden Supabase-Session und App-Rolle geprüft.
+
+## Funktionen
+
+- Rollenmodell: Ministrant, Obermini, Entwickler.
+- Dienstplaner mit Serien-Anlage, Abmeldefristen und Ersatzsuche.
+- Chat mit Systemmeldungen und XSS-sicherer Ausgabe über `textContent`.
+- Statistik und druckbares Leaderboard.
+- Benutzerverwaltung im Entwicklerbereich.
+- Pflicht-Passwortwechsel und freiwilliger Passwortwechsel im Profil.
+- OAuth-Start für Google, GitHub und Microsoft über Supabase Auth.
+- Apple OAuth bleibt optional, weil es nur mit Apple Developer Program oder
+  bewilligter Gebührenbefreiung wirklich kostenlos bleibt.
+- Umschaltbare Backends: Cloud, SQLite lokal, Mock im Arbeitsspeicher.
+
+## Cloud-Backend
+
+| Backend | Einsatzgebiet | Persistenz | Auth |
+|---------|---------------|------------|------|
+| Cloud | Produktivbetrieb | Supabase Postgres über Vercel API | Supabase Auth, OAuth + Passwort |
+| SQLite | Lokaler Testbetrieb | IndexedDB mit sql.js WASM | Lokales PBKDF2 |
+| Mock | Unit/E2E-Tests | Arbeitsspeicher | Demo-Konten |
+
+### Runtime-Variablen
+
+Die Werte gehören in Vercel Project Settings oder lokal in `.env.local`.
+`.env.local` ist gitignored.
+
+```env
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+APP_BASE_URL=
+APP_OAUTH_PROVIDERS=google,github,azure
+APP_ALLOWED_EMAIL_DOMAINS=
 ```
-index.html
-├── <head>        Meta, CSP, Inter, FontAwesome
-├── <style>       Design-Tokens, Komponenten, @media print, reduced-motion
-├── <body>        Skip-Link, App-Root, Modal-Root, Toast-Container
-└── <script>      Firebase-Init → Service-Worker-Blob
-                  → XSS-sicherer DOM-Builder & Toast-Manager
-                  → Finite State Machine (Proxy + PubSub)
-                  → Business-Logik (Auth, Planner, Stats, Chat, FCM, Backup)
-                  → Render-Funktionen pro View
-                  → Boot
-```
 
-### Leitprinzipien
-
-- **Finite State Machine** – Die Oberfläche befindet sich jederzeit in genau
-  einer der definierten Views (`LOGIN`, `HOME`, `CHAT`, `PROFILE`, `STATS`,
-  `ADMIN`, `DEV`). Übergänge laufen ausschließlich über den globalen `state`
-  (reactiver `Proxy`).
-- **Semantische Silos** – Jede View/Komponente (Dienst-Karte, Modal, Chat)
-  ist eine eigene Funktion mit eigenen Event-Listenern, keine verstreuten
-  DOM-Referenzen.
-- **XSS strukturell unmöglich** – Nutzerdaten werden ausschließlich über
-  `textContent` bzw. `document.createTextNode()` eingefügt. Der
-  DOM-Builder `h()` bietet erst gar keine Möglichkeit, dynamische Strings
-  als HTML zu interpretieren.
-- **Service Worker im selben Dokument** – Der SW-Code wird als String in ein
-  `Blob` gepackt, per `URL.createObjectURL` registriert und verfolgt eine
-  `Network-first`-Strategie (Realtime-Daten haben Vorrang).
-
-## Backends
-
-Die App abstrahiert den Datenzugriff hinter einer einheitlichen Schnittstelle
-(`ref()`, `on()`, `once()`, `push()`, `limitToLast()`, `transaction()`) und
-bietet drei Implementierungen:
-
-| Backend   | Einsatzgebiet                             | Persistenz               | Auth                        |
-|-----------|-------------------------------------------|--------------------------|-----------------------------|
-| Firebase  | Produktivbetrieb                          | Realtime Database Cloud  | Firebase Auth (Email/PW)    |
-| **SQLite** | **Übergangslösung / Offline-Testbetrieb** | **IndexedDB (WASM-DB)** | Lokal (PBKDF2-SHA256)       |
-| Mock      | Unit- und E2E-Tests                       | Arbeitsspeicher          | Automatisches Einloggen     |
-
-### Backend umschalten
-
-- **Administrativ**: Dev-Zugang → Tab „Dev“ → Karte „Backend / Verbindung“ →
-  Option wählen → „Backend übernehmen (Neuladen)“. Die Auswahl bleibt
-  pro Browser im `localStorage` erhalten (`minis.backend`).
-- **URL-Override** (für Tests): `?backend=sqlite`, `?backend=mock`,
-  `?backend=firebase` oder die Abkürzung `?mock=1`.
-
-### SQLite-Details
-
-- Lädt `sql-wasm.js` und `sql-wasm.wasm` von cdnjs (v1.10.3).
-- Schema mit echten relationalen Tabellen (`users`, `services`,
-  `serviceAttendees`, `chat`, `stats`) inkl. Indizes und `ON CONFLICT`-Upserts.
-- Persistenz: die vollständige SQLite-Binärdatei wird debounced
-  (400 ms) in IndexedDB (`minis-sqlite` Store) gespeichert.
-- Passwörter: PBKDF2 (120 000 Iterationen, SHA-256) mit pro Account zufällig
-  generiertem 16-Byte-Salt.
-- Seed-Account beim ersten Start: Benutzer `admin`, Passwort `admin1234`,
-  Rolle Admin, mit aktivem Pflicht-Passwortwechsel.
-
-## Voraussetzungen
-
-| Zweck                   | Werkzeug / Version           |
-|-------------------------|------------------------------|
-| Produktivbetrieb        | Moderner Browser (Chrome ≥ 100, Safari ≥ 16, Firefox ≥ 110, Edge) |
-| Hosting                 | GitHub Pages *oder* beliebiger statischer Webserver |
-| Backend                 | Firebase-Projekt mit aktivierter **Realtime Database (europe-west1)**, **Email/Password-Auth** und **Cloud Messaging** |
-| Lokales Entwickeln      | Node.js ≥ 20, npm ≥ 10 |
-| Tests                   | Vitest (happy-dom) & Playwright (Chromium) |
+Details stehen in [docs/deployment/vercel-supabase.md](./docs/deployment/vercel-supabase.md).
 
 ## Schnellstart
 
 ```bash
-git clone <repository-url> minis-wettstetten
-cd minis-wettstetten
 npm install
-npm run dev             # http://localhost:8080
+npm run dev
 ```
 
-Für das vollständige Verhalten ohne Netzwerk:
+Ohne Cloud-Zugang:
 
 ```bash
-# startet die App im Mock-Modus (In-Memory-Firebase)
 open "http://localhost:8080/index.html?mock=1"
 ```
 
-### Firebase konfigurieren
+Mit Vercel-ähnlicher lokaler Umgebung:
 
-1. Firebase-Projekt `miniswettapp` verwenden. Das Web-Config-Snippet ist in
-   [`index.html`](./index.html) (Abschnitt `firebaseConfig`) bereits verdrahtet.
-2. **Realtime Database** → Region `europe-west1` auswählen.
-3. Regeln aus [`firebase.rules.json`](./firebase.rules.json) einspielen. Die
-   Firebase-CLI liest Projekt und Rules-Datei aus [`.firebaserc`](./.firebaserc)
-   und [`firebase.json`](./firebase.json):
-   ```bash
-   firebase deploy --only database --project miniswettapp
-   ```
-4. **Authentication** → Anbieter `Email/Password` aktivieren.
-5. Ersten Entwickler-Benutzer mit Firebase Console/Admin SDK anlegen und unter
-   `/users/{uid}` mit `role: "dev"` freischalten. Erst danach können weitere
-   Benutzer sicher aus der App heraus erstellt werden.
-6. Optional: **Cloud Messaging** → Web-Push-Zertifikat (VAPID) anlegen.
-
-### GitHub Secrets
-
-- Für das Firebase-Web-Config-Snippet wird kein GitHub Secret benötigt: diese
-  Werte sind Client-Konfiguration, keine privaten Admin-Zugangsdaten.
-- Der GitHub-Pages-Workflow nutzt nur die Repository-Berechtigungen
-  `contents: read`, `pages: write` und `id-token: write`.
-- Firebase-Regeln werden bewusst nicht automatisch aus GitHub deployt, solange
-  kein dediziertes Firebase-Service-Account-Secret eingerichtet ist. Private
-  Service-Account-JSONs, Admin-SDK-Schlüssel oder Firebase-CI-Tokens gehören nie
-  in den Source Tree.
-
-## Entwicklung & lokale Ausführung
-
-| Kommando                | Beschreibung                                           |
-|-------------------------|--------------------------------------------------------|
-| `npm run dev`           | Statischer HTTP-Server auf Port 8080                   |
-| `npm run test:unit`     | Unit-Tests (Vitest + happy-dom)                        |
-| `npm run test:unit:watch` | Unit-Tests im Watch-Modus                            |
-| `npm run test:e2e`      | End-to-End-Tests (Playwright, Desktop + Mobile)        |
-| `npm run test:e2e:ui`   | Playwright mit interaktivem UI-Runner                  |
-| `npm run test`          | Beide Testsuiten hintereinander                        |
+```bash
+vercel env pull .env.local
+vercel dev
+```
 
 ## Tests
 
-| Schicht        | Werkzeug     | Anzahl | Schwerpunkt |
-|----------------|--------------|--------|-------------|
-| Unit           | Vitest + happy-dom | 51     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen, Browser-Sicherheitsmetadata |
-| End-to-End     | Playwright   | 25 × 2 Projekte | Login, Dev-Masterkey, Rollen-Sichtbarkeit, Benutzeranlage, Navigation, mobile/Desktop-Layout, Druckansicht |
-
-Die App exponiert für Tests reine Hilfsfunktionen unter
-`window.__MinisTest`. Der `?mock=1`-Query-Parameter ersetzt Firebase durch ein
-In-Memory-Backend; damit laufen sämtliche E2E-Tests ohne Internetverbindung.
-
-## Deployment
-
-### GitHub Pages
-
-1. Repository auf GitHub erstellen und den Inhalt pushen.
-2. In den Repository-Einstellungen unter **Pages** den Branch `main` auswählen
-   (Verzeichnis `/`).
-3. Der bereitgestellte Workflow
-   [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) veröffentlicht
-   die Seite automatisch bei jedem Push auf `main`.
-
-### Firebase-Regeln
+| Schicht | Werkzeug | Anzahl | Schwerpunkt |
+|---------|----------|--------|-------------|
+| Unit | Vitest + happy-dom | 53 | Datumslogik, Businesslogik, DOM-Builder, Rollen, Cloud-Konfiguration, Browser-Sicherheitsmetadata |
+| E2E | Playwright | 26 x 2 Projekte | Login, Dev-Masterkey, Rollen, Benutzeranlage, Navigation, Layout, Druckansicht |
 
 ```bash
-firebase deploy --only database --project miniswettapp
+npm run test:unit
+npm run test:e2e
+npm run test
 ```
 
 ## Sicherheit
 
-- **Keine `innerHTML`-Nutzung für dynamische Inhalte** – strukturelle
-  XSS-Immunität.
-- **Content-Security-Policy** als `<meta>`-Header – Skripte und Verbindungen
-  auf `gstatic.com`, `cdnjs.cloudflare.com` und Firebase-Hosts beschränkt.
-- **Subresource Integrity (SRI)** auf extern geladenes CSS.
-- **Eingabe-Validierung** bei Benutzername, Passwort-Länge,
-  Dienst-Titel/Beschreibung (Längenbegrenzung + Steuerzeichen-Filter).
-- **Firebase Realtime Database Rules** in [`firebase.rules.json`](./firebase.rules.json)
-  sperren Root-Zugriff, erlauben Lesen nur für freigegebene Benutzerprofile
-  und trennen öffentliche Anzeigenamen von privaten Verwaltungsdaten.
-- **Erzwungener Passwort-Wechsel** über nicht schließbares Modal (`aria-modal`,
-  Focus Trap, gesperrter Hintergrund).
-- **ISO/IEC-27001-orientierte Zugriffstrennung**: Least Privilege, Need-to-know,
-  Datenminimierung und prüfbare Regeln. Eine formale ISO-Zertifizierung erfordert
-  zusätzlich organisatorische ISMS-Prozesse und ein externes Audit.
+- Keine Secrets im Browserbundle.
+- Supabase `service_role` nur serverseitig in Vercel Runtime-Variablen.
+- `public.app_state` hat RLS aktiv und verweigert direkten Clientzugriff.
+- API-Routen prüfen Supabase JWT, App-Rolle und Pfadberechtigung.
+- CSP begrenzt Skripte, Styles, Fonts und Cloud-Verbindungen.
+- Dynamische Nutzerdaten werden nicht per `innerHTML` gerendert.
+- OAuth-Anbieter werden zentral in Supabase Auth und `APP_OAUTH_PROVIDERS`
+  konfiguriert.
 
-Siehe [`SECURITY.md`](./SECURITY.md) für den Umgang mit Sicherheitsmeldungen.
+## Deployment
+
+1. Supabase-Projekt erstellen.
+2. `supabase/schema.sql` ausführen.
+3. OAuth-Anbieter Google, GitHub und Azure (Microsoft) aktivieren.
+4. Vercel-Projekt mit dem Repository verbinden.
+5. Runtime-Variablen aus `.env.example` in Vercel setzen.
+6. Production-Deployment auf `main` oder per Vercel Git Integration auslösen.
 
 ## Barrierefreiheit
 
-Die App zielt auf **WCAG 2.2 Konformitätsstufe AA** und **EN 301 549** ab:
+Die App zielt auf WCAG 2.2 AA und EN 301 549:
 
 - Skip-Link als erstes fokussierbares Element.
-- `role="dialog"` mit `aria-modal`, Focus-Trap und `Escape` für alle Modale
-  (außer dem erzwungenen Passwort-Modal).
-- Alle Buttons mit mindestens 44 × 44 px (WCAG 2.5.5 / 2.5.8 „Target Size“).
-- `aria-label` auf Icon-Buttons, `role="navigation"` auf der Bottom-Nav,
-  `aria-live` für Toast- und Chat-Updates.
-- `prefers-reduced-motion` deaktiviert alle Animationen und Übergänge.
-- `prefers-contrast: more` erhöht Ränder und Textkontrast.
-- Schriftart **Inter** mit optimierter Lesbarkeit und tabellarischen Ziffern
-  für Statistiken.
-
-## Druckansicht
-
-Jede Seite ist für **DIN A4** optimiert:
-
-- Bottom-Navigation, Toasts, Modale und Header werden im Druck ausgeblendet.
-- Karten erhalten schwarze Konturen und vermeiden Seitenumbrüche in der Mitte
-  (`page-break-inside: avoid`).
-- Links erscheinen mit ihrer URL in Klammern.
-
-Drucken direkt im Header-Button oder per `Strg/⌘ + P`.
-
-## Datenmodell
-
-```
-/users/{uid}
-  private registry: username, displayName, role, email, mustChangePassword, fcmToken
-/publicProfiles/{uid}
-  public-to-members: username, displayName
-/services/{sid}
-  title, description, startMs, deadlineDays, minSlots, color,
-  replacement, statsApplied, attendees/{uid}
-/stats/{uid}
-  attended, cancelled, lateCancelled
-/chat/{mid}
-  uid, username, displayName, text, ts, system
-```
-
-## Mitwirken
-
-Beiträge sind willkommen! Lies bitte vorher:
-
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md) – Arbeitsweise, Commits, Code-Stil
-- [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) – Umgang miteinander
-- [`SECURITY.md`](./SECURITY.md) – Sicherheitsmeldungen
+- Dialoge mit `role="dialog"`, `aria-modal` und Focus-Trap.
+- Tastaturbedienbare Navigation.
+- `aria-live` für Toast- und Chat-Updates.
+- `prefers-reduced-motion` und `prefers-contrast` werden respektiert.
 
 ## Lizenz
 
-Dieses Projekt steht unter der [MIT-Lizenz](./LICENSE).
+MIT, siehe [LICENSE](./LICENSE).

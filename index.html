@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light" />
 <meta name="description" content="Minis Wettstetten – Dienstplan, Chat und Verwaltung für Ministranten der Pfarrei Wettstetten." />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; object-src 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; object-src 'none';" />
 <title>Minis Wettstetten</title>
 
 <link rel="manifest" href="./manifest.webmanifest" />
@@ -727,12 +727,6 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
 <div id="modal-root" aria-live="polite"></div>
 
-<!-- Firebase Compat v9 (CDN) -->
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js" crossorigin="anonymous"></script>
-
 <script>
 /* ===================================================================
    Minis Wettstetten – Monolithic Vanilla JS
@@ -759,7 +753,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     STATS: 'stats',
     CHAT: 'chat'
   });
-  const FIREBASE_BACKUP_PATHS = Object.freeze([
+  const CLOUD_BACKUP_PATHS = Object.freeze([
     DB_PATHS.USERS,
     DB_PATHS.PUBLIC_PROFILES,
     DB_PATHS.SERVICES,
@@ -780,13 +774,13 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // -----------------------------------------------------------------
-  // 1. Backend-Wahl (Firebase / SQLite lokal / Mock In-Memory)
+  // 1. Backend-Wahl (Vercel/Supabase Cloud / SQLite lokal / Mock In-Memory)
   //    Auswahl verwalteter Persistenz über localStorage, URL-Override
-  //    für Tests (?backend=sqlite|firebase|mock oder ?mock=1).
+  //    für Tests (?backend=sqlite|cloud|mock oder ?mock=1).
   // -----------------------------------------------------------------
-  const BACKENDS = Object.freeze({ FIREBASE: 'firebase', SQLITE: 'sqlite', MOCK: 'mock' });
+  const BACKENDS = Object.freeze({ CLOUD: 'cloud', SQLITE: 'sqlite', MOCK: 'mock' });
   const BACKEND_LABELS = {
-    firebase: 'Firebase (Cloud)',
+    cloud:    'Vercel + Supabase (Cloud)',
     sqlite:   'SQLite (lokal, Browser-Speicher)',
     mock:     'Mock (nur Arbeitsspeicher, für Tests)'
   };
@@ -800,7 +794,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       const v = localStorage.getItem(BACKEND_STORAGE_KEY);
       if (v && Object.values(BACKENDS).includes(v)) return v;
     } catch (_) { /* storage disabled */ }
-    return BACKENDS.FIREBASE;
+    return BACKENDS.CLOUD;
   }
   function writeBackendSetting(value) {
     if (!Object.values(BACKENDS).includes(value)) throw new Error('Unbekanntes Backend.');
@@ -809,55 +803,211 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   let ACTIVE_BACKEND = readBackendSetting();
 
   // -----------------------------------------------------------------
-  // 2. Firebase-Konfiguration (nur für das Firebase-Backend verwendet)
+  // 2. Cloud-Konfiguration (nur über Vercel API-Routen; keine DB-Secrets im Browser)
   // -----------------------------------------------------------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyBn4jWkZMOKNyxRw2zUISY8xG4CvMEvyVY",
-    authDomain: "miniswettapp.firebaseapp.com",
-    projectId: "miniswettapp",
-    databaseURL: "https://miniswettapp-default-rtdb.europe-west1.firebasedatabase.app/",
-    storageBucket: "miniswettapp.firebasestorage.app",
-    messagingSenderId: "418982681815",
-    appId: "1:418982681815:web:2fa96d0bc47d5b3df16492"
-  };
+  let db, auth, createUserOnBackend;
+  const CLOUD_SESSION_KEY = 'minis.cloud.session';
+  const CLOUD_OAUTH_STATE_KEY = 'minis.cloud.oauth.state';
+  const FREE_CLOUD_OAUTH_PROVIDER_IDS = Object.freeze(['google', 'github', 'azure']);
+  const CLOUD_OAUTH_PROVIDERS = Object.freeze([
+    { id: 'google', label: 'Google', icon: 'google' },
+    { id: 'github', label: 'GitHub', icon: 'github' },
+    { id: 'azure', label: 'Microsoft', icon: 'microsoft' },
+    { id: 'apple', label: 'Apple', icon: 'apple' }
+  ]);
+  let CLOUD_CONFIG = { auth: { providers: FREE_CLOUD_OAUTH_PROVIDER_IDS.slice() } };
 
-  let db, auth, messaging, createUserOnBackend;
-
-  function createFirebaseBackend() {
-    if (typeof firebase === 'undefined') {
-      throw new Error('Firebase SDK nicht verfügbar (CDN nicht geladen).');
+  function currentCloudSession() {
+    try {
+      const raw = sessionStorage.getItem(CLOUD_SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  }
+  function saveCloudSession(session) {
+    if (!session || !session.access_token) return null;
+    const expiresAt = session.expires_at || Math.floor(Date.now() / 1000) + Number(session.expires_in || 3600);
+    const stored = Object.assign({}, session, { expires_at: expiresAt });
+    try { sessionStorage.setItem(CLOUD_SESSION_KEY, JSON.stringify(stored)); } catch (_) {}
+    return stored;
+  }
+  function clearCloudSession() {
+    try { sessionStorage.removeItem(CLOUD_SESSION_KEY); } catch (_) {}
+  }
+  function captureCloudSessionFromHash() {
+    if (!location.hash || location.hash.indexOf('access_token=') === -1) return null;
+    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const returnedState = params.get('state');
+    const expectedState = sessionStorage.getItem(CLOUD_OAUTH_STATE_KEY);
+    if (expectedState && returnedState !== expectedState) {
+      clearCloudSession();
+      try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+      throw new Error('OAuth-State ungültig.');
     }
-    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const _db = firebase.database();
-    const _auth = firebase.auth();
-    let _messaging = null;
-    try { _messaging = firebase.messaging(); } catch (_) { _messaging = null; }
-    async function createUser(username, password, profile) {
-      const email = usernameToEmail(username);
-      // Sekundäre App, damit das Erstellen eines Users die aktive Admin-Session
-      // nicht überschreibt (createUserWithEmailAndPassword meldet sonst um).
-      let secondary = firebase.apps.find(a => a.name === '__userCreate');
-      if (!secondary) secondary = firebase.initializeApp(firebaseConfig, '__userCreate');
-      try {
-        const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
-        const uid = cred.user.uid;
-        const privateProfile = {
-          username,
-          email,
-          displayName: (profile && profile.displayName) || username,
-          role: (profile && profile.role) || 'user',
-          mustChangePassword: profile && profile.mustChangePassword === false ? false : true,
-          createdAt: Date.now()
-        };
-        await _db.ref(dbPath(DB_PATHS.USERS, uid)).set(privateProfile);
-        await _db.ref(dbPath(DB_PATHS.PUBLIC_PROFILES, uid)).set(publicProfileFromUser(privateProfile));
-        await secondary.auth().signOut();
-        return { uid, username, email };
-      } finally {
-        try { await secondary.delete(); } catch (_) { /* already deleted */ }
+    try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+    const session = saveCloudSession({
+      access_token: params.get('access_token'),
+      refresh_token: params.get('refresh_token'),
+      expires_in: Number(params.get('expires_in') || 3600),
+      token_type: params.get('token_type') || 'bearer'
+    });
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    return session;
+  }
+  function cloudAuthHeaders(extra) {
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+    const session = currentCloudSession();
+    if (session && session.access_token) headers.Authorization = 'Bearer ' + session.access_token;
+    return headers;
+  }
+  async function refreshCloudSession() {
+    const session = currentCloudSession();
+    if (!session || !session.refresh_token) return null;
+    const res = await fetch('./api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    if (!res.ok) { clearCloudSession(); return null; }
+    const data = await res.json();
+    return saveCloudSession(data.session);
+  }
+  async function cloudRequest(path, options, retried) {
+    const opts = Object.assign({ method: 'GET' }, options || {});
+    opts.headers = cloudAuthHeaders(opts.headers);
+    if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+    const res = await fetch(path, opts);
+    if (res.status === 401 && !retried && await refreshCloudSession()) {
+      return cloudRequest(path, options, true);
+    }
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = new Error((data && data.error) || 'Cloud API Fehler');
+      err.code = data && data.code;
+      throw err;
+    }
+    return data;
+  }
+  function cloudRedirectTarget() {
+    return location.origin + location.pathname + '?backend=' + encodeURIComponent(BACKENDS.CLOUD);
+  }
+  function randomOAuthState() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function startOAuth(provider) {
+    const allowed = enabledCloudOAuthProviders().some(p => p.id === provider);
+    if (!allowed) return toast('OAuth-Anbieter nicht unterstützt.', 'error');
+    const state = randomOAuthState();
+    try { sessionStorage.setItem(CLOUD_OAUTH_STATE_KEY, state); } catch (_) {}
+    const url = './api/auth/start?provider=' + encodeURIComponent(provider) +
+      '&redirectTo=' + encodeURIComponent(cloudRedirectTarget()) +
+      '&state=' + encodeURIComponent(state);
+    location.href = url;
+  }
+  function createCloudSnapshot(value) {
+    return { val: () => value == null ? null : value };
+  }
+  function createCloudDatabase() {
+    function ref(p, limit) {
+      p = '/' + (p || '').replace(/^\/+|\/+$/g, '');
+      return {
+        key: p.split('/').pop() || null,
+        async once() {
+          const data = await cloudRequest('./api/data?path=' + encodeURIComponent(p) + (limit ? '&limit=' + encodeURIComponent(limit) : ''));
+          return createCloudSnapshot(data.value);
+        },
+        async set(value) { await cloudRequest('./api/data', { method: 'PUT', body: { path: p, value } }); },
+        async update(obj) { await cloudRequest('./api/data', { method: 'PATCH', body: { path: p, value: obj } }); },
+        async remove() { await cloudRequest('./api/data', { method: 'DELETE', body: { path: p } }); },
+        push(value) {
+          const id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+          const child = ref(p + '/' + id);
+          child.key = id;
+          if (value !== undefined) child.set(value).catch(err => console.warn('cloud push', err));
+          return child;
+        },
+        on(_evt, cb) {
+          let stopped = false;
+          const tick = async () => {
+            if (stopped) return;
+            try { cb(await this.once()); }
+            catch (err) { console.warn('cloud subscribe', err); }
+          };
+          tick();
+          const timer = setInterval(tick, 4000);
+          this._timer = timer;
+        },
+        off() { if (this._timer) clearInterval(this._timer); },
+        limitToLast(n) { return ref(p, n); },
+        async transaction(fn) {
+          const snap = await this.once();
+          const next = fn(snap.val());
+          await this.set(next);
+          return { committed: true, snapshot: createCloudSnapshot(next) };
+        }
+      };
+    }
+    return { ref };
+  }
+  function makeCloudCurrentUser(user) {
+    return {
+      uid: user.id,
+      email: user.email || '',
+      async updatePassword(newPassword) {
+        await cloudRequest('./api/auth/update-password', { method: 'POST', body: { password: newPassword } });
       }
+    };
+  }
+  function createCloudAuth() {
+    const state = { currentUser: null, listeners: [] };
+    async function resolveCurrentUser() {
+      const session = currentCloudSession();
+      if (!session || !session.access_token) return null;
+      const data = await cloudRequest('./api/auth/user');
+      state.currentUser = makeCloudCurrentUser(data.user);
+      return state.currentUser;
     }
-    return { db: _db, auth: _auth, messaging: _messaging, createUser };
+    function emit() { state.listeners.forEach(cb => cb(state.currentUser)); }
+    return {
+      get currentUser() { return state.currentUser; },
+      onAuthStateChanged(cb) {
+        state.listeners.push(cb);
+        resolveCurrentUser().then(user => cb(user)).catch(() => { clearCloudSession(); cb(null); });
+        return () => { state.listeners = state.listeners.filter(x => x !== cb); };
+      },
+      async signInWithEmailAndPassword(email, password) {
+        const data = await cloudRequest('./api/auth/password', { method: 'POST', body: { email, password } });
+        saveCloudSession(data.session);
+        state.currentUser = makeCloudCurrentUser(data.user);
+        emit();
+        return { user: state.currentUser };
+      },
+      async signOut() {
+        clearCloudSession();
+        state.currentUser = null;
+        emit();
+      },
+      startOAuth
+    };
+  }
+  async function createCloudBackend() {
+    captureCloudSessionFromHash();
+    const cfg = await cloudRequest('./api/config');
+    if (!cfg || !cfg.configured) throw new Error('Cloud API nicht konfiguriert.');
+    CLOUD_CONFIG = cfg;
+    async function createUser(username, password, profile) {
+      return cloudRequest('./api/users', { method: 'POST', body: { username, password, profile } });
+    }
+    return { db: createCloudDatabase(), auth: createCloudAuth(), createUser };
+  }
+  function enabledCloudOAuthProviders() {
+    const configured = CLOUD_CONFIG && CLOUD_CONFIG.auth && Array.isArray(CLOUD_CONFIG.auth.providers)
+      ? CLOUD_CONFIG.auth.providers
+      : FREE_CLOUD_OAUTH_PROVIDER_IDS;
+    const enabled = new Set(configured);
+    return CLOUD_OAUTH_PROVIDERS.filter(provider => enabled.has(provider.id));
   }
 
   // -----------------------------------------------------------------
@@ -882,7 +1032,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       if (req.method !== 'GET') return;
       const url = new URL(req.url);
       if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-      if (/firebaseio|googleapis|firebasedatabase|gstatic|cdnjs\\.cloudflare\\.com/.test(req.url)) return; // Let external live traffic handle itself
+      if (/supabase\\.co|cdnjs\\.cloudflare\\.com/.test(req.url)) return; // Let external live traffic handle itself
       e.respondWith((async () => {
         try {
           const fresh = await fetch(req);
@@ -920,7 +1070,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   `;
 
   function registerServiceWorker() {
-    if (ACTIVE_BACKEND === BACKENDS.MOCK) return;
+    if (ACTIVE_BACKEND === BACKENDS.MOCK && urlParams.get('mock') === '1') return;
     if (!('serviceWorker' in navigator)) return;
     // Bevorzugt: echte Datei ./sw.js (nötig für PWA-Installierbarkeit –
     // Blob-URLs haben einen begrenzten Scope, den Browser ablehnen).
@@ -977,8 +1127,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     }
   }
   function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); }
-  function icon(name, { label } = {}) {
-    const i = h('i', { class: 'fa-solid fa-' + name, 'aria-hidden': label ? 'false' : 'true' });
+  function icon(name, { label, family } = {}) {
+    const i = h('i', { class: (family === 'brands' ? 'fa-brands' : 'fa-solid') + ' fa-' + name, 'aria-hidden': label ? 'false' : 'true' });
     if (label) i.setAttribute('aria-label', label);
     return i;
   }
@@ -1322,7 +1472,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       state.view = VIEWS.HOME;
       if (profile.mustChangePassword) showForcedPasswordModal();
       bootstrapSubscriptions();
-      initMessaging().catch(() => {});
+      initNotifications().catch(() => {});
     } catch (e) {
       console.error(e);
       toast('Profil konnte nicht geladen werden: ' + e.message, 'error');
@@ -1548,22 +1698,12 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // -----------------------------------------------------------------
-  // 13. Firebase Cloud Messaging
+  // 13. Browser notifications (cloud push is intentionally server-side only)
   // -----------------------------------------------------------------
-  async function initMessaging() {
-    if (!messaging || !('Notification' in window)) return;
+  async function initNotifications() {
+    if (!('Notification' in window)) return;
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
-      const token = await messaging.getToken().catch(() => null);
-      if (token && state.user && state.user.uid) {
-        await db.ref(dbPath(DB_PATHS.USERS, state.user.uid, 'fcmToken')).set(token);
-      }
-      messaging.onMessage && messaging.onMessage(payload => {
-        const title = (payload && payload.notification && payload.notification.title) || 'Minis Wettstetten';
-        const body = (payload && payload.notification && payload.notification.body) || '';
-        toast(title + (body ? ' — ' + body : ''), 'info');
-      });
+      if (Notification.permission === 'default') await Notification.requestPermission();
     } catch (e) { /* silent */ }
   }
 
@@ -1573,9 +1713,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   async function exportDatabase() {
     requireRole(ROLES.DEV);
     let data;
-    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
+    if (ACTIVE_BACKEND === BACKENDS.CLOUD) {
       data = {};
-      for (const path of FIREBASE_BACKUP_PATHS) {
+      for (const path of CLOUD_BACKUP_PATHS) {
         const snap = await db.ref(path).once('value');
         data[path] = snap.val() || {};
       }
@@ -1593,8 +1733,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
   async function importDatabase(file) {
     requireRole(ROLES.DEV);
-    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
-      toast('Firebase-Import ist in der App deaktiviert. Nutze Firebase CLI/Admin SDK mit geprüftem Backup.', 'warn');
+    if (ACTIVE_BACKEND === BACKENDS.CLOUD) {
+      toast('Cloud-Import ist in der App deaktiviert. Nutze ein geprüftes serverseitiges Migrationsskript.', 'warn');
       return;
     }
     const text = await file.text();
@@ -1737,6 +1877,21 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         }, [icon('flask'), 'Entwickler Zugang'])
       ])
     ]));
+    if (ACTIVE_BACKEND === BACKENDS.CLOUD && auth && typeof auth.startOAuth === 'function') {
+      const providers = enabledCloudOAuthProviders();
+      if (providers.length) {
+        card.appendChild(h('div', { class: 'stack mt-8', 'aria-label': 'OAuth Login' }, [
+          h('p', { class: 'text-muted mb-0', text: 'Oder sicher per OAuth anmelden:' }),
+          h('div', { class: 'login-actions' }, providers.map(provider =>
+            h('button', {
+              class: 'btn btn-ghost btn-block',
+              type: 'button',
+              onclick: () => auth.startOAuth(provider.id)
+            }, [icon(provider.icon, { family: 'brands' }), provider.label])
+          ))
+        ]));
+      }
+    }
     wrapper.appendChild(card);
     setTimeout(() => username.focus(), 0);
     return wrapper;
@@ -1745,7 +1900,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   function mapAuthError(e) {
     const m = (e && (e.code || e.message)) || '';
     if (/user-not-found/.test(m)) return 'Benutzer nicht gefunden.';
-    if (/wrong-password|invalid-login|invalid-credential/.test(m)) return 'Falsches Passwort.';
+    if (/wrong-password|invalid-login|invalid_login|invalid-credential/.test(m)) return 'Falsches Passwort.';
     if (/too-many-requests/.test(m)) return 'Zu viele Versuche. Bitte später erneut.';
     return 'Anmeldung fehlgeschlagen: ' + (e.message || m);
   }
@@ -2047,7 +2202,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     ]));
     const group = h('div', { class: 'stack', role: 'radiogroup', 'aria-label': 'Backend auswählen' });
     const options = [
-      { value: BACKENDS.FIREBASE, label: BACKEND_LABELS.firebase, hint: 'Empfohlen für den Produktivbetrieb. Erfordert Firebase-Projekt.' },
+      { value: BACKENDS.CLOUD,    label: BACKEND_LABELS.cloud,    hint: 'Produktivbetrieb über Vercel API-Routen, Supabase Auth und Postgres.' },
       { value: BACKENDS.SQLITE,   label: BACKEND_LABELS.sqlite,   hint: 'Lokale SQLite-Datenbank (WASM, im Browser-IndexedDB persistiert).' },
       { value: BACKENDS.MOCK,     label: BACKEND_LABELS.mock,     hint: 'Nur Arbeitsspeicher, geeignet für Demos und Tests.' }
     ];
@@ -2164,8 +2319,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
   async function createMissingDemoAccounts() {
     requireRole(ROLES.DEV);
-    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
-      toast('Demo-Konten werden im Firebase-Backend nicht automatisch angelegt.', 'warn');
+    if (ACTIVE_BACKEND === BACKENDS.CLOUD) {
+      toast('Demo-Konten werden im Cloud-Backend nicht automatisch angelegt.', 'warn');
       return;
     }
     if (typeof createUserOnBackend !== 'function') {
@@ -2186,10 +2341,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   function renderDemoAccountsCard() {
-    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
+    if (ACTIVE_BACKEND === BACKENDS.CLOUD) {
       return h('div', { class: 'card' }, [
         h('h3', { class: 'mt-0', text: 'Lokale Demo-Konten' }),
-        h('p', { class: 'text-muted mb-0', text: 'Demo-Konten sind nur für Mock und SQLite vorgesehen. Im Firebase-Backend werden echte Konten ausschließlich bewusst über „Neuer Benutzer“ angelegt.' })
+        h('p', { class: 'text-muted mb-0', text: 'Demo-Konten sind nur für Mock und SQLite vorgesehen. Im Cloud-Backend werden echte Konten ausschließlich bewusst über „Neuer Benutzer“ angelegt.' })
       ]);
     }
     const list = h('div', { class: 'stack' });
@@ -2386,14 +2541,12 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     if (which === BACKENDS.SQLITE) {
       return await createSqliteBackend();
     }
-    return createFirebaseBackend();
+    return await createCloudBackend();
   }
 
   async function selectBackendAndReload(which) {
     writeBackendSetting(which);
-    if (which !== BACKENDS.SQLITE) {
-      // Firebase-/Mock-Daten sind unabhängig – einfach neu laden.
-    }
+    if (which !== BACKENDS.SQLITE) { /* Cloud-/Mock-Daten sind unabhängig. */ }
     toast('Backend-Wechsel gespeichert. App wird neu geladen…', 'info');
     setTimeout(() => location.reload(), 400);
   }
@@ -2403,11 +2556,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     renderApp();
     try {
       const chosen = ACTIVE_BACKEND;
-      ({ db, auth, messaging, createUser: createUserOnBackend } = await initBackend(chosen));
+      ({ db, auth, createUser: createUserOnBackend } = await initBackend(chosen));
     } catch (e) {
       console.error('Backend-Init fehlgeschlagen', e);
       toast('Backend "' + BACKEND_LABELS[ACTIVE_BACKEND] + '" nicht verfügbar. Lokales Mock wird verwendet.', 'error');
-      ({ db, auth, messaging, createUser: createUserOnBackend } = createMockBackend());
+      ({ db, auth, createUser: createUserOnBackend } = createMockBackend());
       ACTIVE_BACKEND = BACKENDS.MOCK;
     }
     registerServiceWorker();
@@ -2521,7 +2674,6 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     return {
       db: { ref },
       auth: mockAuth,
-      messaging: null,
       createUser
     };
   }
@@ -3028,7 +3180,6 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     return {
       db: { ref },
       auth: sqliteAuth,
-      messaging: null,
       createUser,
       __sqlite: {
         engine: sqldb,
@@ -3043,6 +3194,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // -----------------------------------------------------------------
   window.__MinisTest = Object.freeze({
     VIEWS, ROLES, ROLE_DEFINITIONS, ROLE_ORDER, DEMO_ACCOUNTS, BACKENDS, BACKEND_LABELS, DB_PATHS,
+    CLOUD_OAUTH_PROVIDERS,
     DAY_MS,
     daysBetween, addDays, isPast, formatDateTime, localDateTimeInputValue, parseDateTimeLocal,
     isLateCancellation, generateWeeklySeries,

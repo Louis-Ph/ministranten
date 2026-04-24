@@ -3,9 +3,8 @@
  *
  * Bewusst als eigenständige Datei ausgelagert (statt Blob-Registrierung), damit
  * der Scope auf `./` zeigt und Browser die PWA als installierbar erkennen.
- * Strategie: Network-first mit Cache-Fallback. Firebase-Realtime-Traffic wird
- * nicht abgefangen, damit Live-Updates nicht durch veraltete Caches blockiert
- * werden.
+ * Strategie: Network-first mit Cache-Fallback. Cloud-API-Traffic wird nicht
+ * abgefangen, damit Live-Updates nicht durch veraltete Caches blockiert werden.
  */
 
 'use strict';
@@ -39,8 +38,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  // Firebase & sql.js CDN werden nicht gecached, um Live-Daten nicht zu blockieren.
-  if (/firebaseio|firebasedatabase|googleapis|gstatic|cdnjs\.cloudflare\.com/.test(req.url)) return;
+  // Cloud API & sql.js CDN werden nicht gecached, um Live-Daten nicht zu blockieren.
+  if (/supabase\.co|cdnjs\.cloudflare\.com/.test(req.url)) return;
 
   event.respondWith((async () => {
     try {
@@ -62,7 +61,7 @@ self.addEventListener('fetch', (event) => {
   })());
 });
 
-/** Push-Benachrichtigungen (FCM liefert den Payload als JSON). */
+/** Push-Benachrichtigungen liefern den Payload als JSON. */
 self.addEventListener('push', (event) => {
   let data = { title: 'Minis Wettstetten', body: 'Neue Nachricht.' };
   try { if (event.data) data = Object.assign(data, event.data.json()); } catch (_) {}

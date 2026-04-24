@@ -15,9 +15,9 @@ describe('browser security metadata', () => {
     expect(csp).not.toContain('frame-ancestors');
   });
 
-  it('allows Firebase SDK sourcemap requests without weakening script-src', () => {
+  it('allows the Supabase cloud API without weakening script-src', () => {
     expect(csp).toContain('connect-src');
-    expect(csp).toContain('https://www.gstatic.com');
+    expect(csp).toContain('https://*.supabase.co');
     expect(csp).toContain("script-src 'self'");
   });
 

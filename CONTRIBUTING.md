@@ -82,7 +82,7 @@ Commits folgen [Conventional Commits](https://www.conventionalcommits.org/de/v1.
 ```
 feat: Passwort-Zwang auch im Profil anbieten
 fix: Ersatzsuche-Toast bei Offline-Zustand verzögern
-docs: README um Firebase-Regeln ergänzen
+docs: README um Cloud-Deployment ergänzen
 test: E2E-Test für Chat-Scroll-Verhalten
 ```
 
