@@ -10,7 +10,7 @@
 
 'use strict';
 
-const CACHE = 'minis-wettstetten-v1';
+const CACHE = 'minis-wettstetten-v2';
 const PRECACHE = [
   './',
   './index.html',
@@ -37,6 +37,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
   // Firebase & sql.js CDN werden nicht gecached, um Live-Daten nicht zu blockieren.
   if (/firebaseio|firebasedatabase|googleapis|gstatic|cdnjs\.cloudflare\.com/.test(req.url)) return;
 

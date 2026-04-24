@@ -212,7 +212,7 @@ open "http://localhost:8080/index.html?mock=1"
 
 | Schicht        | Werkzeug     | Anzahl | Schwerpunkt |
 |----------------|--------------|--------|-------------|
-| Unit           | Vitest + happy-dom | 47     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen |
+| Unit           | Vitest + happy-dom | 51     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen, Browser-Sicherheitsmetadata |
 | End-to-End     | Playwright   | 25 × 2 Projekte | Login, Dev-Masterkey, Rollen-Sichtbarkeit, Benutzeranlage, Navigation, mobile/Desktop-Layout, Druckansicht |
 
 Die App exponiert für Tests reine Hilfsfunktionen unter

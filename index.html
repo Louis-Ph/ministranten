@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light" />
 <meta name="description" content="Minis Wettstetten – Dienstplan, Chat und Verwaltung für Ministranten der Pfarrei Wettstetten." />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com https://cdnjs.cloudflare.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; object-src 'none';" />
 <title>Minis Wettstetten</title>
 
 <link rel="manifest" href="./manifest.webmanifest" />
@@ -22,7 +22,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQDiNJoEvZKt2KA7JQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 <style>
 /* ===================================================================
@@ -864,7 +864,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 2. Service Worker (Blob URL) – Network-first caching + push handler
   // -----------------------------------------------------------------
   const swCode = `
-    const CACHE = 'minis-wettstetten-v1';
+    const CACHE = 'minis-wettstetten-v2';
     const PRECACHE = ['/', location.href];
 
     self.addEventListener('install', (e) => {
@@ -880,7 +880,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     self.addEventListener('fetch', (e) => {
       const req = e.request;
       if (req.method !== 'GET') return;
-      if (/firebaseio|googleapis|firebasedatabase|gstatic/.test(req.url)) return; // Let Firebase handle its own traffic
+      const url = new URL(req.url);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+      if (/firebaseio|googleapis|firebasedatabase|gstatic|cdnjs\\.cloudflare\\.com/.test(req.url)) return; // Let external live traffic handle itself
       e.respondWith((async () => {
         try {
           const fresh = await fetch(req);
