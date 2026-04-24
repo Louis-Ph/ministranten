@@ -1,48 +1,70 @@
 {
   "rules": {
-    ".read": "auth != null",
+    ".read": false,
     ".write": false,
 
     "users": {
       ".indexOn": ["username", "role"],
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
       "$uid": {
         ".read": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists() && newData.child('role').val() == 'user'))",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
+        ".validate": "newData.hasChildren(['username', 'displayName', 'role', 'mustChangePassword'])",
         "role": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists() && newData.val() == 'user'))",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
           ".validate": "newData.isString() && (newData.val() == 'user' || newData.val() == 'admin' || newData.val() == 'dev')"
         },
         "mustChangePassword": {
-          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev' || root.child('users').child(auth.uid).child('role').val() == 'admin')",
+          ".write": "auth != null && root.child('users').child($uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev' || root.child('users').child(auth.uid).child('role').val() == 'admin')",
           ".validate": "newData.isBoolean()"
         },
         "displayName": {
-          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".write": "auth != null && root.child('users').child($uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
           ".validate": "newData.isString() && newData.val().length <= 60"
         },
         "username": {
-          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
           ".validate": "newData.isString() && newData.val().length <= 40"
         },
         "email": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists()))",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
           ".validate": "newData.isString() && newData.val().length <= 120"
         },
         "createdAt": {
-          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists()))",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
           ".validate": "newData.isNumber()"
         },
         "fcmToken": {
-          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".write": "auth != null && root.child('users').child($uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
           ".validate": "newData.isString() && newData.val().length <= 4096"
         },
-        "$other":      { ".validate": false }
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+
+    "publicProfiles": {
+      ".indexOn": ["username"],
+      ".read": "auth != null && root.child('users').child(auth.uid).exists()",
+      "$uid": {
+        ".write": "auth != null && root.child('users').child($uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+        ".validate": "newData.hasChildren(['username', 'displayName'])",
+        "username": {
+          ".validate": "newData.isString() && newData.val() == root.child('users').child($uid).child('username').val()"
+        },
+        "displayName": {
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
 
     "services": {
       ".indexOn": ["startMs"],
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('users').child(auth.uid).exists()",
       "$sid": {
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
         ".validate": "newData.hasChildren(['title', 'startMs'])",
@@ -59,9 +81,9 @@
         "createdAt":    { ".validate": "newData.isNumber()" },
         "attendees": {
           "$uid": {
-            ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+            ".write": "auth != null && root.child('users').child(auth.uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
             ".validate": "newData.hasChildren(['uid', 'username', 'displayName', 'ts'])",
-            "uid":         { ".validate": "newData.isString()" },
+            "uid":         { ".validate": "newData.isString() && newData.val() == $uid" },
             "username":    { ".validate": "newData.isString() && newData.val().length <= 40" },
             "displayName": { ".validate": "newData.isString() && newData.val().length <= 60" },
             "ts":          { ".validate": "newData.isNumber()" },
@@ -73,10 +95,10 @@
     },
 
     "chat": {
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('users').child(auth.uid).exists()",
       ".indexOn": ["ts"],
       "$mid": {
-        ".write": "auth != null && !data.exists() && ((newData.child('system').val() == false && newData.child('uid').val() == auth.uid) || (newData.child('system').val() == true && newData.child('uid').val() == '__system__' && newData.child('triggeredBy').val() == auth.uid && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')))",
+        ".write": "auth != null && root.child('users').child(auth.uid).exists() && !data.exists() && ((newData.child('system').val() == false && newData.child('uid').val() == auth.uid) || (newData.child('system').val() == true && newData.child('uid').val() == '__system__' && newData.child('triggeredBy').val() == auth.uid && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')))",
         ".validate": "newData.hasChildren(['uid', 'text', 'ts'])",
         "uid":         { ".validate": "newData.isString() && (newData.val() == auth.uid || newData.val() == '__system__')" },
         "username":    { ".validate": "newData.isString() && newData.val().length <= 40" },
@@ -90,9 +112,10 @@
     },
 
     "stats": {
-      ".read": "auth != null",
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
       "$uid": {
-        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+        ".read": "auth != null && root.child('users').child(auth.uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+        ".write": "auth != null && root.child('users').child(auth.uid).exists() && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
         "attended":      { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "cancelled":     { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "lateCancelled": { ".validate": "newData.isNumber() && newData.val() >= 0" },

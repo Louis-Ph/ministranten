@@ -752,6 +752,32 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   const DEV_MASTERKEY = 'miniswettapp';
   const CHAT_LIMIT = 40;
   const SYSTEM_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
+  const DB_PATHS = Object.freeze({
+    USERS: 'users',
+    PUBLIC_PROFILES: 'publicProfiles',
+    SERVICES: 'services',
+    STATS: 'stats',
+    CHAT: 'chat'
+  });
+  const FIREBASE_BACKUP_PATHS = Object.freeze([
+    DB_PATHS.USERS,
+    DB_PATHS.PUBLIC_PROFILES,
+    DB_PATHS.SERVICES,
+    DB_PATHS.STATS,
+    DB_PATHS.CHAT
+  ]);
+
+  function dbPath(root) {
+    return Array.prototype.slice.call(arguments)
+      .filter(part => part != null && part !== '')
+      .join('/');
+  }
+
+  function publicProfileFromUser(profile) {
+    const username = profile && profile.username ? profile.username : '';
+    const displayName = profile && profile.displayName ? profile.displayName : username;
+    return { username, displayName };
+  }
 
   // -----------------------------------------------------------------
   // 1. Backend-Wahl (Firebase / SQLite lokal / Mock In-Memory)
@@ -815,14 +841,16 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       try {
         const cred = await secondary.auth().createUserWithEmailAndPassword(email, password);
         const uid = cred.user.uid;
-        await _db.ref('users/' + uid).set({
+        const privateProfile = {
           username,
           email,
           displayName: (profile && profile.displayName) || username,
           role: (profile && profile.role) || 'user',
           mustChangePassword: profile && profile.mustChangePassword === false ? false : true,
           createdAt: Date.now()
-        });
+        };
+        await _db.ref(dbPath(DB_PATHS.USERS, uid)).set(privateProfile);
+        await _db.ref(dbPath(DB_PATHS.PUBLIC_PROFILES, uid)).set(publicProfileFromUser(privateProfile));
         await secondary.auth().signOut();
         return { uid, username, email };
       } finally {
@@ -1100,7 +1128,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     view: VIEWS.LOGIN,
     user: null,           // {uid, email, username, role, displayName, mustChangePassword}
     services: [],
-    users: {},
+    users: {},            // publicProfiles: username + displayName only
+    privateUsers: {},     // administrative registry: role + operational flags
     chatMessages: [],
     stats: {},
     lastSystemAlertTs: 0,
@@ -1247,19 +1276,18 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     return true;
   }
 
+  async function syncPublicProfile(uid, profile) {
+    await db.ref(dbPath(DB_PATHS.PUBLIC_PROFILES, uid)).set(publicProfileFromUser(profile));
+  }
+
   async function loadUserProfile(fbUser) {
     const uid = fbUser.uid;
-    const snap = await db.ref('users/' + uid).once('value');
-    let profile = snap.val() || {};
-    if (!profile.username) {
-      const inferred = (fbUser.email || '').split('@')[0];
-      profile.username = inferred || uid;
-      await db.ref('users/' + uid + '/username').set(profile.username);
+    const snap = await db.ref(dbPath(DB_PATHS.USERS, uid)).once('value');
+    const profile = snap.val();
+    if (!profile || !profile.username || !profile.role) {
+      throw new Error('Kein freigegebenes Benutzerprofil vorhanden. Bitte einen Entwickler bitten, den Benutzer anzulegen.');
     }
-    if (!profile.role) {
-      profile.role = ROLES.USER;
-      await db.ref('users/' + uid + '/role').set(ROLES.USER);
-    }
+    syncPublicProfile(uid, profile).catch(err => console.warn('public profile sync', err));
     return {
       uid,
       email: fbUser.email,
@@ -1315,7 +1343,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       btn.disabled = true;
       try {
         await auth.currentUser.updatePassword(pw1.value);
-        await db.ref('users/' + auth.currentUser.uid + '/mustChangePassword').set(false);
+        await db.ref(dbPath(DB_PATHS.USERS, auth.currentUser.uid, 'mustChangePassword')).set(false);
         rec.forcedLocked = false;
         rec.close();
         state.user = Object.assign({}, state.user, { mustChangePassword: false });
@@ -1366,7 +1394,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     };
     const series = repeatWeekly12 ? generateWeeklySeries(data.startMs, 12) : [data.startMs];
     const writes = series.map(ms => {
-      const ref = db.ref('services').push();
+      const ref = db.ref(DB_PATHS.SERVICES).push();
       return ref.set(Object.assign({}, base, { startMs: ms, id: ref.key }));
     });
     await Promise.all(writes);
@@ -1374,17 +1402,17 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
   async function updateService(id, patch) {
     requireRole(ROLES.ADMIN);
-    await db.ref('services/' + id).update(patch);
+    await db.ref(dbPath(DB_PATHS.SERVICES, id)).update(patch);
   }
   async function deleteService(id) {
     requireRole(ROLES.ADMIN);
-    await db.ref('services/' + id).remove();
+    await db.ref(dbPath(DB_PATHS.SERVICES, id)).remove();
   }
 
   async function signUp(serviceId) {
     const u = state.user;
     if (!u) return;
-    await db.ref('services/' + serviceId + '/attendees/' + u.uid).set({
+    await db.ref(dbPath(DB_PATHS.SERVICES, serviceId, 'attendees', u.uid)).set({
       uid: u.uid, username: u.username, displayName: u.displayName || u.username, ts: Date.now()
     });
     toast('Eingetragen.', 'success');
@@ -1406,8 +1434,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       });
       if (!ok) return;
       const writes = [
-        db.ref('services/' + serviceId + '/attendees/' + u.uid).remove(),
-        db.ref('services/' + serviceId + '/replacement').set(true),
+        db.ref(dbPath(DB_PATHS.SERVICES, serviceId, 'attendees', u.uid)).remove(),
+        db.ref(dbPath(DB_PATHS.SERVICES, serviceId, 'replacement')).set(true),
         incrementStat(u.uid, 'lateCancelled')
       ];
       await Promise.all(writes);
@@ -1416,7 +1444,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       toast('Austragung gespeichert – Ersatzsuche aktiviert.', 'warn');
     } else {
       const writes = [
-        db.ref('services/' + serviceId + '/attendees/' + u.uid).remove(),
+        db.ref(dbPath(DB_PATHS.SERVICES, serviceId, 'attendees', u.uid)).remove(),
         incrementStat(u.uid, 'cancelled')
       ];
       await Promise.all(writes);
@@ -1435,7 +1463,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 11. Statistics engine
   // -----------------------------------------------------------------
   async function incrementStat(uid, key) {
-    const ref = db.ref('stats/' + uid + '/' + key);
+    const ref = db.ref(dbPath(DB_PATHS.STATS, uid, key));
     try {
       await ref.transaction(v => (v || 0) + 1);
     } catch (e) {
@@ -1448,7 +1476,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     // One-pass: every past service increments attended for attendees that are still listed.
     // Idempotence via marker /services/{id}/statsApplied = true
     const now = Date.now();
-    const servicesSnap = await db.ref('services').once('value');
+    const servicesSnap = await db.ref(DB_PATHS.SERVICES).once('value');
     const services = servicesSnap.val() || {};
     const jobs = [];
     for (const id in services) {
@@ -1457,7 +1485,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       if (s.startMs < now) {
         const atts = s.attendees || {};
         for (const uid in atts) jobs.push(incrementStat(uid, 'attended'));
-        jobs.push(db.ref('services/' + id + '/statsApplied').set(true));
+        jobs.push(db.ref(dbPath(DB_PATHS.SERVICES, id, 'statsApplied')).set(true));
       }
     }
     if (jobs.length) await Promise.all(jobs);
@@ -1467,7 +1495,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 12. Chat
   // -----------------------------------------------------------------
   function subscribeChat() {
-    db.ref('chat').limitToLast(CHAT_LIMIT).on('value', snap => {
+    db.ref(DB_PATHS.CHAT).limitToLast(CHAT_LIMIT).on('value', snap => {
       const val = snap.val() || {};
       const list = Object.keys(val).map(k => Object.assign({ id: k }, val[k]));
       list.sort((a, b) => (a.ts || 0) - (b.ts || 0));
@@ -1486,7 +1514,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     if (!text) return;
     const u = state.user;
     if (!u) throw new Error('Nicht angemeldet.');
-    await db.ref('chat').push({
+    await db.ref(DB_PATHS.CHAT).push({
       uid: u.uid, username: u.username, displayName: u.displayName || u.username,
       text, ts: Date.now(), system: false
     });
@@ -1497,7 +1525,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     const safeText = sanitizePlainText(text).slice(0, 2000);
     if (!safeText) return;
     try {
-      await db.ref('chat').push({
+      await db.ref(DB_PATHS.CHAT).push({
         uid: '__system__', username: 'SYSTEM', displayName: 'SYSTEM',
         text: safeText,
         ts: Date.now(),
@@ -1509,7 +1537,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       if (!u) throw err;
       console.warn('system chat message rejected, posting user-visible fallback', err);
     }
-    await db.ref('chat').push({
+    await db.ref(DB_PATHS.CHAT).push({
       uid: u.uid, username: u.username, displayName: u.displayName || u.username,
       text: safeText,
       ts: Date.now(),
@@ -1527,7 +1555,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       if (perm !== 'granted') return;
       const token = await messaging.getToken().catch(() => null);
       if (token && state.user && state.user.uid) {
-        await db.ref('users/' + state.user.uid + '/fcmToken').set(token);
+        await db.ref(dbPath(DB_PATHS.USERS, state.user.uid, 'fcmToken')).set(token);
       }
       messaging.onMessage && messaging.onMessage(payload => {
         const title = (payload && payload.notification && payload.notification.title) || 'Minis Wettstetten';
@@ -1542,8 +1570,18 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // -----------------------------------------------------------------
   async function exportDatabase() {
     requireRole(ROLES.DEV);
-    const snap = await db.ref('/').once('value');
-    const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: 'application/json' });
+    let data;
+    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
+      data = {};
+      for (const path of FIREBASE_BACKUP_PATHS) {
+        const snap = await db.ref(path).once('value');
+        data[path] = snap.val() || {};
+      }
+    } else {
+      const snap = await db.ref('/').once('value');
+      data = snap.val() || {};
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = h('a', { href: url, download: 'minis-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json' });
     document.body.appendChild(a);
@@ -1553,6 +1591,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
   async function importDatabase(file) {
     requireRole(ROLES.DEV);
+    if (ACTIVE_BACKEND === BACKENDS.FIREBASE) {
+      toast('Firebase-Import ist in der App deaktiviert. Nutze Firebase CLI/Admin SDK mit geprüftem Backup.', 'warn');
+      return;
+    }
     const text = await file.text();
     let parsed;
     try { parsed = JSON.parse(text); }
@@ -1854,7 +1896,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         const v = sanitizePlainText(display.value).slice(0, 60);
         if (!v) return toast('Name darf nicht leer sein.', 'error');
         if (!auth.currentUser) return toast('Nur für echte Nutzer verfügbar.', 'warn');
-        await db.ref('users/' + u.uid + '/displayName').set(v);
+        await Promise.all([
+          db.ref(dbPath(DB_PATHS.USERS, u.uid, 'displayName')).set(v),
+          db.ref(dbPath(DB_PATHS.PUBLIC_PROFILES, u.uid, 'displayName')).set(v)
+        ]);
         state.user = Object.assign({}, u, { displayName: v });
         toast('Anzeigename gespeichert.', 'success');
       } }, ['Speichern'])
@@ -2111,7 +2156,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   function demoAccountExists(username) {
-    const users = state.users || {};
+    const users = Object.assign({}, state.users || {}, state.privateUsers || {});
     return Object.keys(users).some(uid => users[uid] && users[uid].username === username);
   }
 
@@ -2228,7 +2273,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
   function renderUserList() {
     const wrap = h('div', { class: 'stack' });
-    const users = state.users || {};
+    const users = state.privateUsers || {};
     const keys = Object.keys(users);
     if (!keys.length) { wrap.appendChild(h('p', { class: 'text-muted', text: 'Keine Benutzer vorhanden.' })); return wrap; }
     for (const uid of keys) {
@@ -2240,13 +2285,13 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
           u.mustChangePassword ? h('span', { class: 'pill low', text: ' · PW-Zwang' }) : null
         ]),
         h('button', { class: 'btn btn-ghost', onclick: async () => {
-          await db.ref('users/' + uid + '/mustChangePassword').set(true);
+          await db.ref(dbPath(DB_PATHS.USERS, uid, 'mustChangePassword')).set(true);
           toast('Passwort-Zwang aktiviert.', 'success');
         } }, [icon('rotate'), 'PW-Reset']),
         h('select', {
           class: 'select', 'aria-label': 'Rolle ändern',
           onchange: async (e) => {
-            await db.ref('users/' + uid + '/role').set(e.target.value);
+            await db.ref(dbPath(DB_PATHS.USERS, uid, 'role')).set(e.target.value);
             toast('Rolle aktualisiert.', 'success');
           }
         }, roleOptions().map(({ role, def }) =>
@@ -2261,21 +2306,38 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 16. Subscriptions bootstrap
   // -----------------------------------------------------------------
   function bootstrapSubscriptions() {
-    db.ref('services').on('value', snap => {
+    db.ref(DB_PATHS.SERVICES).on('value', snap => {
       const v = snap.val() || {};
       state.services = Object.keys(v).map(k => Object.assign({ id: k }, v[k]));
     });
-    db.ref('users').on('value', snap => { state.users = snap.val() || {}; });
-    db.ref('stats').on('value', snap => { state.stats = snap.val() || {}; });
+    db.ref(DB_PATHS.PUBLIC_PROFILES).on('value', snap => { state.users = snap.val() || {}; });
+    if (state.user && roleAtLeast(state.user.role, ROLES.ADMIN)) {
+      db.ref(DB_PATHS.USERS).on('value', snap => { state.privateUsers = snap.val() || {}; });
+    } else if (state.user && state.user.uid) {
+      db.ref(dbPath(DB_PATHS.USERS, state.user.uid)).on('value', snap => {
+        const profile = snap.val();
+        state.privateUsers = profile ? { [state.user.uid]: profile } : {};
+      });
+    }
+    if (state.user && roleAtLeast(state.user.role, ROLES.ADMIN)) {
+      db.ref(DB_PATHS.STATS).on('value', snap => { state.stats = snap.val() || {}; });
+    } else if (state.user && state.user.uid) {
+      db.ref(dbPath(DB_PATHS.STATS, state.user.uid)).on('value', snap => {
+        const ownStats = snap.val();
+        state.stats = ownStats ? { [state.user.uid]: ownStats } : {};
+      });
+    }
     subscribeChat();
-    recomputeAttendanceForPastServices().catch(err => console.warn('stats recompute', err));
+    if (state.user && roleAtLeast(state.user.role, ROLES.ADMIN)) {
+      recomputeAttendanceForPastServices().catch(err => console.warn('stats recompute', err));
+    }
   }
 
   // -----------------------------------------------------------------
   // 17. Reactivity – re-render on any state change
   // -----------------------------------------------------------------
   on('state', (evt) => {
-    if (['view','user','services','chatMessages','stats','users'].indexOf(evt.key) !== -1) {
+    if (['view','user','services','chatMessages','stats','users','privateUsers'].indexOf(evt.key) !== -1) {
       renderApp();
     }
   });
@@ -2358,7 +2420,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 20. Mock-Backend (In-Memory, für Tests und ?mock=1)
   // -----------------------------------------------------------------
   function createMockBackend() {
-    const store = { users: {}, services: {}, chat: {}, stats: {} };
+    const store = { users: {}, publicProfiles: {}, services: {}, chat: {}, stats: {} };
     const mockPasswords = Object.create(null);
     const watchers = new Map();
     function pathGet(p) { return p.split('/').filter(Boolean).reduce((o, k) => (o == null ? o : o[k]), store); }
@@ -2426,28 +2488,32 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       const uid = 'mock-' + username;
       if (pathGet('/users/' + uid)) throw new Error('Benutzername bereits vergeben.');
       mockPasswords[uid] = password;
-      await ref('users/' + uid).set({
+      const privateProfile = {
         username,
         email: usernameToEmail(username),
         displayName: (profile && profile.displayName) || username,
         role: (profile && profile.role) || 'user',
         mustChangePassword: !(profile && profile.mustChangePassword === false),
         createdAt: Date.now()
-      });
+      };
+      await ref(dbPath(DB_PATHS.USERS, uid)).set(privateProfile);
+      await ref(dbPath(DB_PATHS.PUBLIC_PROFILES, uid)).set(publicProfileFromUser(privateProfile));
       return { uid, username };
     }
 
     for (const account of DEMO_ACCOUNTS) {
       const uid = 'mock-' + account.username;
       mockPasswords[uid] = account.password;
-      pathSet('/users/' + uid, {
+      const privateProfile = {
         username: account.username,
         email: usernameToEmail(account.username),
         displayName: account.displayName,
         role: account.role,
         mustChangePassword: false,
         createdAt: Date.now()
-      });
+      };
+      pathSet('/' + dbPath(DB_PATHS.USERS, uid), privateProfile);
+      pathSet('/' + dbPath(DB_PATHS.PUBLIC_PROFILES, uid), publicProfileFromUser(privateProfile));
     }
 
     return {
@@ -2599,6 +2665,13 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         fcmToken: row.fcmToken || null
       };
     }
+    function publicProfileRowToObj(row) {
+      if (!row) return null;
+      return {
+        username: row.username,
+        displayName: row.displayName || row.username
+      };
+    }
     function loadAttendees(sid) {
       const list = rows('SELECT * FROM serviceAttendees WHERE sid = ?', [sid]);
       const out = {};
@@ -2633,6 +2706,16 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
           return out;
         }
         const u = userRowToObj(firstRow('SELECT * FROM users WHERE uid = ?', [parts[1]]));
+        if (parts.length === 2) return u;
+        return u ? (u[parts[2]] == null ? null : u[parts[2]]) : null;
+      }
+      if (root === 'publicProfiles') {
+        if (parts.length === 1) {
+          const out = {};
+          for (const r of rows('SELECT uid, username, displayName FROM users')) out[r.uid] = publicProfileRowToObj(r);
+          return out;
+        }
+        const u = publicProfileRowToObj(firstRow('SELECT uid, username, displayName FROM users WHERE uid = ?', [parts[1]]));
         if (parts.length === 2) return u;
         return u ? (u[parts[2]] == null ? null : u[parts[2]]) : null;
       }
@@ -2677,6 +2760,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     function exportTree() {
       return {
         users: readPath('/users'),
+        publicProfiles: readPath('/publicProfiles'),
         services: readPath('/services'),
         chat: readPath('/chat'),
         stats: readPath('/stats')
@@ -2691,6 +2775,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         sqldb.run('DELETE FROM stats');
         const t = value || {};
         for (const uid in (t.users || {}))    writePath('users/' + uid, t.users[uid]);
+        for (const uid in (t.publicProfiles || {})) writePath('publicProfiles/' + uid, t.publicProfiles[uid]);
         for (const sid in (t.services || {})) writePath('services/' + sid, t.services[sid]);
         for (const mid in (t.chat || {}))     writePath('chat/' + mid, t.chat[mid]);
         for (const uid in (t.stats || {}))    writePath('stats/' + uid, t.stats[uid]);
@@ -2724,6 +2809,23 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
         const v = field === 'mustChangePassword' ? (value ? 1 : 0) : value;
         sqldb.run('INSERT INTO users (uid, username, ' + field + ') VALUES (?, ?, ?)' +
           ' ON CONFLICT(uid) DO UPDATE SET ' + field + ' = excluded.' + field, [uid, uid, v]);
+        return;
+      }
+      if (root === 'publicProfiles') {
+        const uid = parts[1];
+        if (parts.length === 2) {
+          if (value === null) { return; }
+          sqldb.run(
+            'INSERT INTO users (uid, username, displayName, role) VALUES (?,?,?,?)' +
+            ' ON CONFLICT(uid) DO UPDATE SET username=COALESCE(excluded.username, users.username), displayName=COALESCE(excluded.displayName, users.displayName)',
+            [uid, value.username || uid, value.displayName || value.username || uid, 'user']
+          );
+          return;
+        }
+        const field = parts[2];
+        if (!['username','displayName'].includes(field)) return;
+        sqldb.run('INSERT INTO users (uid, username, ' + field + ') VALUES (?, ?, ?)' +
+          ' ON CONFLICT(uid) DO UPDATE SET ' + field + ' = excluded.' + field, [uid, uid, value]);
         return;
       }
       if (root === 'services') {
@@ -2917,6 +3019,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       );
       schedulePersist();
       notifyPath('/users/' + uid);
+      notifyPath('/publicProfiles/' + uid);
       return { uid, username };
     }
 
@@ -2937,7 +3040,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 22. Expose pure helpers for unit/e2e tests
   // -----------------------------------------------------------------
   window.__MinisTest = Object.freeze({
-    VIEWS, ROLES, ROLE_DEFINITIONS, ROLE_ORDER, DEMO_ACCOUNTS, BACKENDS, BACKEND_LABELS,
+    VIEWS, ROLES, ROLE_DEFINITIONS, ROLE_ORDER, DEMO_ACCOUNTS, BACKENDS, BACKEND_LABELS, DB_PATHS,
     DAY_MS,
     daysBetween, addDays, isPast, formatDateTime, localDateTimeInputValue, parseDateTimeLocal,
     isLateCancellation, generateWeeklySeries,

@@ -30,24 +30,49 @@ describe('firebase project configuration', () => {
 
 describe('firebase realtime database rules', () => {
   const { rules } = firebaseRules;
+  const membershipCheck = "root.child('users').child(auth.uid).exists()";
+
+  it('does not grant database-wide reads or writes', () => {
+    expect(rules['.read']).toBe(false);
+    expect(rules['.write']).toBe(false);
+  });
+
+  it('keeps public profiles separate from private user records', () => {
+    expect(rules.publicProfiles['.read']).toContain(membershipCheck);
+    expect(rules.publicProfiles.$uid['.validate']).toContain('username');
+    expect(rules.publicProfiles.$uid['.validate']).toContain('displayName');
+    expect(rules.publicProfiles.$uid.username['.validate']).toContain("root.child('users').child($uid).child('username').val()");
+    expect(rules.publicProfiles.$uid.$other['.validate']).toBe(false);
+    expect(JSON.stringify(rules.publicProfiles)).not.toContain('email');
+    expect(JSON.stringify(rules.publicProfiles)).not.toContain('fcmToken');
+    expect(JSON.stringify(rules.publicProfiles)).not.toContain('mustChangePassword');
+  });
 
   it('does not allow a generic authenticated stats write', () => {
     const statsWrite = rules.stats.$uid['.write'];
     expect(statsWrite).not.toBe('auth != null');
+    expect(rules.stats['.read']).toContain("role').val() == 'admin'");
+    expect(rules.stats['.read']).toContain("role').val() == 'dev'");
+    expect(rules.stats.$uid['.read']).toContain(membershipCheck);
+    expect(rules.stats.$uid['.read']).toContain('auth.uid == $uid');
+    expect(statsWrite).toContain(membershipCheck);
     expect(statsWrite).toContain('auth.uid == $uid');
     expect(statsWrite).toContain("role').val() == 'admin'");
     expect(statsWrite).toContain("role').val() == 'dev'");
   });
 
-  it('keeps role elevation restricted to devs after initial self-profile creation', () => {
+  it('keeps role elevation and private profile creation restricted to devs', () => {
+    expect(rules.users['.read']).toContain("role').val() == 'admin'");
+    expect(rules.users['.read']).toContain("role').val() == 'dev'");
+    expect(rules.users.$uid['.write']).toBe("auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'");
     const roleWrite = rules.users.$uid.role['.write'];
     expect(roleWrite).toContain("role').val() == 'dev'");
-    expect(roleWrite).toContain("newData.val() == 'user'");
     expect(roleWrite).not.toContain("newData.val() == 'admin'");
   });
 
   it('rejects unknown children in user, service, attendee, chat and stats records', () => {
     expect(rules.users.$uid.$other['.validate']).toBe(false);
+    expect(rules.publicProfiles.$uid.$other['.validate']).toBe(false);
     expect(rules.services.$sid.$other['.validate']).toBe(false);
     expect(rules.services.$sid.attendees.$uid.$other['.validate']).toBe(false);
     expect(rules.chat.$mid.$other['.validate']).toBe(false);
@@ -63,6 +88,8 @@ describe('firebase realtime database rules', () => {
 
   it('allows system chat messages only from admin or dev users and keeps them attributable', () => {
     const chatWrite = rules.chat.$mid['.write'];
+    expect(rules.chat['.read']).toContain(membershipCheck);
+    expect(chatWrite).toContain(membershipCheck);
     expect(chatWrite).toContain("newData.child('system').val() == true");
     expect(chatWrite).toContain("newData.child('uid').val() == '__system__'");
     expect(chatWrite).toContain("newData.child('triggeredBy').val() == auth.uid");

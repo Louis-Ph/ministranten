@@ -181,7 +181,10 @@ open "http://localhost:8080/index.html?mock=1"
    firebase deploy --only database --project miniswettapp
    ```
 4. **Authentication** → Anbieter `Email/Password` aktivieren.
-5. Optional: **Cloud Messaging** → Web-Push-Zertifikat (VAPID) anlegen.
+5. Ersten Entwickler-Benutzer mit Firebase Console/Admin SDK anlegen und unter
+   `/users/{uid}` mit `role: "dev"` freischalten. Erst danach können weitere
+   Benutzer sicher aus der App heraus erstellt werden.
+6. Optional: **Cloud Messaging** → Web-Push-Zertifikat (VAPID) anlegen.
 
 ### GitHub Secrets
 
@@ -209,7 +212,7 @@ open "http://localhost:8080/index.html?mock=1"
 
 | Schicht        | Werkzeug     | Anzahl | Schwerpunkt |
 |----------------|--------------|--------|-------------|
-| Unit           | Vitest + happy-dom | 45     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen |
+| Unit           | Vitest + happy-dom | 47     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen |
 | End-to-End     | Playwright   | 25 × 2 Projekte | Login, Dev-Masterkey, Rollen-Sichtbarkeit, Benutzeranlage, Navigation, mobile/Desktop-Layout, Druckansicht |
 
 Die App exponiert für Tests reine Hilfsfunktionen unter
@@ -243,10 +246,13 @@ firebase deploy --only database --project miniswettapp
 - **Eingabe-Validierung** bei Benutzername, Passwort-Länge,
   Dienst-Titel/Beschreibung (Längenbegrenzung + Steuerzeichen-Filter).
 - **Firebase Realtime Database Rules** in [`firebase.rules.json`](./firebase.rules.json)
-  beschränken Schreibrechte auf die jeweilige Rolle und validieren Datentypen,
-  Wertebereiche und Längen.
+  sperren Root-Zugriff, erlauben Lesen nur für freigegebene Benutzerprofile
+  und trennen öffentliche Anzeigenamen von privaten Verwaltungsdaten.
 - **Erzwungener Passwort-Wechsel** über nicht schließbares Modal (`aria-modal`,
   Focus Trap, gesperrter Hintergrund).
+- **ISO/IEC-27001-orientierte Zugriffstrennung**: Least Privilege, Need-to-know,
+  Datenminimierung und prüfbare Regeln. Eine formale ISO-Zertifizierung erfordert
+  zusätzlich organisatorische ISMS-Prozesse und ein externes Audit.
 
 Siehe [`SECURITY.md`](./SECURITY.md) für den Umgang mit Sicherheitsmeldungen.
 
@@ -280,7 +286,9 @@ Drucken direkt im Header-Button oder per `Strg/⌘ + P`.
 
 ```
 /users/{uid}
-  username, displayName, role (user|admin|dev), mustChangePassword, fcmToken
+  private registry: username, displayName, role, email, mustChangePassword, fcmToken
+/publicProfiles/{uid}
+  public-to-members: username, displayName
 /services/{sid}
   title, description, startMs, deadlineDays, minSlots, color,
   replacement, statsApplied, attendees/{uid}
