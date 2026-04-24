@@ -1,6 +1,6 @@
 'use strict';
 
-const { config, configuredOAuthProviders, isConfigured, sendError, sendJson } = require('./_lib/cloud');
+const { configurationStatus, sendError, sendJson } = require('./_lib/cloud');
 
 module.exports = async function handler(req, res) {
   try {
@@ -8,13 +8,11 @@ module.exports = async function handler(req, res) {
       res.setHeader('Allow', 'GET');
       return sendJson(res, 405, { error: 'Method not allowed.' });
     }
-    const cfg = config();
+    const status = configurationStatus();
     return sendJson(res, 200, {
-      configured: isConfigured(),
-      auth: {
-        providers: configuredOAuthProviders(),
-        allowedEmailDomains: cfg.allowedEmailDomains || ''
-      }
+      configured: status.configured,
+      missing: status.missing,
+      auth: status.auth
     });
   } catch (err) {
     return sendError(res, err);

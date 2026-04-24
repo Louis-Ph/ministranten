@@ -58,8 +58,8 @@ Die Werte gehören in Vercel Project Settings oder lokal in `.env.local`.
 `.env.local` ist gitignored.
 
 ```env
-SUPABASE_URL=
-SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_URL=https://uvsgzvzttsohcmsnfgla.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_tIgL-ThuxWBDOcwrf6kXYQ_0_OPWmcs
 SUPABASE_SERVICE_ROLE_KEY=
 APP_BASE_URL=
 APP_OAUTH_PROVIDERS=google,github,azure
@@ -92,7 +92,7 @@ vercel dev
 
 | Schicht | Werkzeug | Anzahl | Schwerpunkt |
 |---------|----------|--------|-------------|
-| Unit | Vitest + happy-dom | 53 | Datumslogik, Businesslogik, DOM-Builder, Rollen, Cloud-Konfiguration, Browser-Sicherheitsmetadata |
+| Unit | Vitest + happy-dom | 55 | Datumslogik, Businesslogik, DOM-Builder, Rollen, Cloud-Konfiguration, Browser-Sicherheitsmetadata |
 | E2E | Playwright | 26 x 2 Projekte | Login, Dev-Masterkey, Rollen, Benutzeranlage, Navigation, Layout, Druckansicht |
 
 ```bash

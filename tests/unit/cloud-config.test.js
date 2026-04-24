@@ -22,6 +22,7 @@ describe('cloud project configuration', () => {
     expect(envExample).toContain('SUPABASE_URL=');
     expect(envExample).toContain('SUPABASE_PUBLISHABLE_KEY=');
     expect(envExample).toContain('SUPABASE_SERVICE_ROLE_KEY=');
+    expect(envExample).toMatch(/^SUPABASE_SERVICE_ROLE_KEY=$/m);
     expect(envExample).toContain('APP_BASE_URL=');
     expect(envExample).toContain('APP_OAUTH_PROVIDERS=google,github,azure');
   });

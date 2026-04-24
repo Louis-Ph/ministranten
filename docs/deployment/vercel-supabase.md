@@ -21,12 +21,23 @@ APP_OAUTH_PROVIDERS=google,github,azure
 APP_ALLOWED_EMAIL_DOMAINS=
 ```
 
-Set these in Vercel Project Settings for Production, Preview and Development as needed. Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
+For this project the public Supabase values are:
+
+```env
+SUPABASE_URL=https://uvsgzvzttsohcmsnfgla.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_tIgL-ThuxWBDOcwrf6kXYQ_0_OPWmcs
+```
+
+Set all variables in Vercel Project Settings for Production and Development.
+Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the browser; it must exist only as
+a Vercel server-side environment variable.
 
 ## Supabase Setup
 
 1. Create a Supabase project in an EU region when possible.
-2. Run `supabase/schema.sql` in the Supabase SQL editor.
+2. Run `supabase/schema.sql` in the Supabase SQL editor. It uses
+   `create table if not exists` and an idempotent insert, so it is safe to run
+   again during deployment hardening.
 3. Enable Auth providers: Google, GitHub and Azure (Microsoft).
 4. Add OAuth redirect URLs:
    - `https://<project-ref>.supabase.co/auth/v1/callback` in each provider console.
@@ -96,3 +107,26 @@ For browser-only testing without cloud credentials, keep using:
 npm run dev
 # open /index.html?mock=1
 ```
+
+## Deployment Health Check
+
+After setting the Vercel variables and running the SQL schema, open:
+
+```text
+https://<your-vercel-domain>/api/health
+```
+
+Expected healthy response:
+
+```json
+{
+  "ok": true,
+  "configured": true,
+  "schema": "ready",
+  "root": "ready"
+}
+```
+
+If the table exists but the `main` row is missing, the API creates that root row
+automatically on first healthcheck/data access. If the table itself is missing,
+the response uses `schema_not_installed`; run `supabase/schema.sql` once.

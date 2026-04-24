@@ -4,6 +4,13 @@ const ROLE_ORDER = Object.freeze({ user: 1, admin: 2, dev: 3 });
 const VALID_PROVIDERS = new Set(['google', 'github', 'azure', 'apple']);
 const FREE_DEFAULT_PROVIDERS = Object.freeze(['google', 'github', 'azure']);
 const ROOT_ID = 'main';
+const DEFAULT_ROOT_STATE = Object.freeze({
+  users: {},
+  publicProfiles: {},
+  services: {},
+  stats: {},
+  chat: {}
+});
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -31,6 +38,28 @@ function config() {
   };
 }
 
+function missingConfigKeys() {
+  const cfg = config();
+  const missing = [];
+  if (!cfg.supabaseUrl) missing.push('SUPABASE_URL');
+  if (!cfg.publishableKey) missing.push('SUPABASE_PUBLISHABLE_KEY');
+  if (!cfg.serviceRoleKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  return missing;
+}
+
+function configurationStatus() {
+  const cfg = config();
+  const missing = missingConfigKeys();
+  return {
+    configured: missing.length === 0,
+    missing,
+    auth: {
+      providers: configuredOAuthProviders(),
+      allowedEmailDomains: cfg.allowedEmailDomains || ''
+    }
+  };
+}
+
 function configuredOAuthProviders() {
   const raw = readEnv('APP_OAUTH_PROVIDERS');
   const requested = raw ? raw.split(',').map(x => x.trim().toLowerCase()).filter(Boolean) : FREE_DEFAULT_PROVIDERS;
@@ -43,8 +72,7 @@ function configuredOAuthProviders() {
 }
 
 function isConfigured() {
-  const cfg = config();
-  return !!(cfg.supabaseUrl && cfg.publishableKey && cfg.serviceRoleKey);
+  return missingConfigKeys().length === 0;
 }
 
 function sendJson(res, status, payload) {
@@ -132,11 +160,25 @@ async function supabaseFetch(path, options) {
   }, options && options.headers ? options.headers : {});
   const res = await fetch(cfg.supabaseUrl.replace(/\/+$/, '') + path, Object.assign({}, options, { headers }));
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; }
+  catch (_) { data = text ? { message: text } : null; }
   if (!res.ok) {
-    throw new HttpError(res.status, data && data.message ? data.message : 'Supabase request failed.', 'supabase_error');
+    if (data && data.code === 'PGRST205') {
+      throw new HttpError(
+        503,
+        'Schema Supabase manquant. Execute supabase/schema.sql une fois dans le SQL Editor.',
+        'schema_not_installed'
+      );
+    }
+    const message = data && data.message ? data.message : 'Supabase request failed.';
+    throw new HttpError(res.status, message, data && data.code ? data.code : 'supabase_error');
   }
   return data;
+}
+
+function defaultRootState() {
+  return clone(DEFAULT_ROOT_STATE);
 }
 
 function bearer(req) {
@@ -174,7 +216,10 @@ async function getRootState() {
     method: 'GET',
     service: true
   });
-  return rows && rows[0] && rows[0].data ? rows[0].data : {};
+  if (rows && rows[0] && rows[0].data) return rows[0].data;
+  const initial = defaultRootState();
+  await saveRootState(initial);
+  return initial;
 }
 
 async function saveRootState(root) {
@@ -185,7 +230,7 @@ async function saveRootState(root) {
       'Content-Type': 'application/json',
       Prefer: 'resolution=merge-duplicates,return=minimal'
     },
-    body: JSON.stringify({ id: ROOT_ID, data: root || {} })
+    body: JSON.stringify({ id: ROOT_ID, data: root || defaultRootState() })
   });
 }
 
@@ -258,7 +303,9 @@ module.exports = {
   assertWriteAllowed,
   clone,
   config,
+  configurationStatus,
   configuredOAuthProviders,
+  defaultRootState,
   enforceEmailDomain,
   getRootState,
   isConfigured,
