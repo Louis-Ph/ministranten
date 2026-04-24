@@ -64,3 +64,31 @@ describe('state / FSM', () => {
     expect(T.state.user).toBe(before);
   });
 });
+
+describe('roles / permissions', () => {
+  it('keeps a strict user < admin < dev hierarchy', () => {
+    expect(T.roleAtLeast(T.ROLES.USER, T.ROLES.USER)).toBe(true);
+    expect(T.roleAtLeast(T.ROLES.USER, T.ROLES.ADMIN)).toBe(false);
+    expect(T.roleAtLeast(T.ROLES.ADMIN, T.ROLES.USER)).toBe(true);
+    expect(T.roleAtLeast(T.ROLES.ADMIN, T.ROLES.DEV)).toBe(false);
+    expect(T.roleAtLeast(T.ROLES.DEV, T.ROLES.ADMIN)).toBe(true);
+  });
+
+  it('maps roles to visible application views', () => {
+    expect(T.canAccessView(T.VIEWS.HOME, T.ROLES.USER)).toBe(true);
+    expect(T.canAccessView(T.VIEWS.CHAT, T.ROLES.USER)).toBe(true);
+    expect(T.canAccessView(T.VIEWS.PROFILE, T.ROLES.USER)).toBe(true);
+    expect(T.canAccessView(T.VIEWS.ADMIN, T.ROLES.USER)).toBe(false);
+    expect(T.canAccessView(T.VIEWS.STATS, T.ROLES.ADMIN)).toBe(true);
+    expect(T.canAccessView(T.VIEWS.DEV, T.ROLES.ADMIN)).toBe(false);
+    expect(T.canAccessView(T.VIEWS.DEV, T.ROLES.DEV)).toBe(true);
+  });
+
+  it('provides one local demo account per role', () => {
+    expect(T.DEMO_ACCOUNTS.map(a => a.role).sort()).toEqual([
+      T.ROLES.ADMIN,
+      T.ROLES.DEV,
+      T.ROLES.USER
+    ].sort());
+  });
+});
