@@ -6,6 +6,19 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- **SQLite-Backend** (`sql.js`-WASM + IndexedDB-Persistenz) als administrativ
+  wählbare Alternative zur Firebase-Verbindung. Relationales Schema mit
+  Indizes, PBKDF2-gehashten Passwörtern und Seed-Admin-Account beim ersten
+  Start.
+- **Backend-Auswahl in der Dev-Ansicht** mit Radio-Gruppe
+  (Firebase / SQLite / Mock), Persistenz im `localStorage`-Schlüssel
+  `minis.backend` und URL-Overrides (`?backend=…`).
+- Option zum Zurücksetzen der lokalen SQLite-Datenbank (Dev-Ansicht).
+- CSP um `wasm-unsafe-eval` und `cdnjs.cloudflare.com` in `connect-src`
+  erweitert.
+
 ## [1.0.0] – 2026-04-24
 
 ### Hinzugefügt

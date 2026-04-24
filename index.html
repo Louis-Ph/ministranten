@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light" />
 <meta name="description" content="Minis Wettstetten – Dienstplan, Chat und Verwaltung für Ministranten der Pfarrei Wettstetten." />
 <meta name="referrer" content="strict-origin-when-cross-origin" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com https://cdnjs.cloudflare.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none';" />
 <title>Minis Wettstetten</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -589,17 +589,45 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   'use strict';
 
   // -----------------------------------------------------------------
-  // 0. Test / Mock detection
+  // 0. URL params + constants
   // -----------------------------------------------------------------
   const urlParams = new URLSearchParams(location.search);
-  const MOCK_MODE = urlParams.get('mock') === '1';
   const MAIL_DOMAIN = '@minis-wettstetten.de';
   const DEV_MASTERKEY = 'miniswettapp';
   const CHAT_LIMIT = 40;
   const SYSTEM_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
 
   // -----------------------------------------------------------------
-  // 1. Firebase Initialization
+  // 1. Backend-Wahl (Firebase / SQLite lokal / Mock In-Memory)
+  //    Auswahl verwalteter Persistenz über localStorage, URL-Override
+  //    für Tests (?backend=sqlite|firebase|mock oder ?mock=1).
+  // -----------------------------------------------------------------
+  const BACKENDS = Object.freeze({ FIREBASE: 'firebase', SQLITE: 'sqlite', MOCK: 'mock' });
+  const BACKEND_LABELS = {
+    firebase: 'Firebase (Cloud)',
+    sqlite:   'SQLite (lokal, Browser-Speicher)',
+    mock:     'Mock (nur Arbeitsspeicher, für Tests)'
+  };
+  const BACKEND_STORAGE_KEY = 'minis.backend';
+
+  function readBackendSetting() {
+    const fromUrl = urlParams.get('backend');
+    if (urlParams.get('mock') === '1') return BACKENDS.MOCK;
+    if (fromUrl && Object.values(BACKENDS).includes(fromUrl)) return fromUrl;
+    try {
+      const v = localStorage.getItem(BACKEND_STORAGE_KEY);
+      if (v && Object.values(BACKENDS).includes(v)) return v;
+    } catch (_) { /* storage disabled */ }
+    return BACKENDS.FIREBASE;
+  }
+  function writeBackendSetting(value) {
+    if (!Object.values(BACKENDS).includes(value)) throw new Error('Unbekanntes Backend.');
+    try { localStorage.setItem(BACKEND_STORAGE_KEY, value); } catch (_) { /* silent */ }
+  }
+  let ACTIVE_BACKEND = readBackendSetting();
+
+  // -----------------------------------------------------------------
+  // 2. Firebase-Konfiguration (nur für das Firebase-Backend verwendet)
   // -----------------------------------------------------------------
   const firebaseConfig = {
     apiKey: "AIzaSyBn4jWkZMOKNyxRw2zUISY8xG4CvMEvyVY",
@@ -613,15 +641,16 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
   let db, auth, messaging;
 
-  if (MOCK_MODE) {
-    ({ db, auth, messaging } = createFirebaseMock());
-  } else if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-    auth = firebase.auth();
-    try { messaging = firebase.messaging(); } catch (e) { messaging = null; }
-  } else {
-    console.error('Firebase SDK failed to load.');
+  function createFirebaseBackend() {
+    if (typeof firebase === 'undefined') {
+      throw new Error('Firebase SDK nicht verfügbar (CDN nicht geladen).');
+    }
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const _db = firebase.database();
+    const _auth = firebase.auth();
+    let _messaging = null;
+    try { _messaging = firebase.messaging(); } catch (_) { _messaging = null; }
+    return { db: _db, auth: _auth, messaging: _messaging };
   }
 
   // -----------------------------------------------------------------
@@ -682,7 +711,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   `;
 
   function registerServiceWorker() {
-    if (MOCK_MODE) return;
+    if (ACTIVE_BACKEND === BACKENDS.MOCK) return;
     if (!('serviceWorker' in navigator)) return;
     try {
       const blob = new Blob([swCode], { type: 'text/javascript' });
@@ -1675,9 +1704,73 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // ----- Dev view -----
+  function renderBackendSelector() {
+    const card = h('div', { class: 'card' });
+    card.appendChild(h('h3', { class: 'mt-0', text: 'Backend / Verbindung' }));
+    card.appendChild(h('p', { class: 'text-muted', text: 'Wähle, womit sich die App verbindet. Die Einstellung bleibt im Browser gespeichert und tritt nach dem Neuladen in Kraft.' }));
+    card.appendChild(h('p', {}, [
+      h('b', { text: 'Derzeit aktiv: ' }),
+      h('span', { text: BACKEND_LABELS[ACTIVE_BACKEND] || ACTIVE_BACKEND })
+    ]));
+    const group = h('div', { class: 'stack', role: 'radiogroup', 'aria-label': 'Backend auswählen' });
+    const options = [
+      { value: BACKENDS.FIREBASE, label: BACKEND_LABELS.firebase, hint: 'Empfohlen für den Produktivbetrieb. Erfordert Firebase-Projekt.' },
+      { value: BACKENDS.SQLITE,   label: BACKEND_LABELS.sqlite,   hint: 'Lokale SQLite-Datenbank (WASM, im Browser-IndexedDB persistiert).' },
+      { value: BACKENDS.MOCK,     label: BACKEND_LABELS.mock,     hint: 'Nur Arbeitsspeicher, geeignet für Demos und Tests.' }
+    ];
+    let picked = ACTIVE_BACKEND;
+    for (const opt of options) {
+      const id = 'backend-' + opt.value;
+      const radio = h('input', { type: 'radio', name: 'backend', id, value: opt.value, checked: opt.value === ACTIVE_BACKEND ? true : false });
+      radio.addEventListener('change', () => { if (radio.checked) picked = opt.value; });
+      group.appendChild(h('label', { for: id, class: 'card', style: { padding: '12px 14px', display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: 0 } }, [
+        radio,
+        h('div', {}, [
+          h('b', { text: opt.label }),
+          h('div', { class: 'text-muted', style: { fontSize: '13px' }, text: opt.hint })
+        ])
+      ]));
+    }
+    card.appendChild(group);
+    const apply = h('button', {
+      class: 'btn btn-primary mt-8',
+      onclick: () => {
+        if (picked === ACTIVE_BACKEND) return toast('Kein Wechsel – Backend unverändert.', 'info');
+        selectBackendAndReload(picked);
+      }
+    }, [icon('arrows-rotate'), 'Backend übernehmen (Neuladen)']);
+    card.appendChild(apply);
+
+    if (ACTIVE_BACKEND === BACKENDS.SQLITE) {
+      card.appendChild(h('hr', { class: 'divider' }));
+      card.appendChild(h('p', { class: 'text-muted', text: 'SQLite-Diagnose' }));
+      const stats = (db && db.ref) ? 'Datenbank initialisiert.' : 'Nicht initialisiert.';
+      card.appendChild(h('p', { text: stats }));
+      card.appendChild(h('button', {
+        class: 'btn btn-danger',
+        onclick: async () => {
+          const ok = await confirmDialog({
+            title: 'SQLite zurücksetzen?',
+            message: 'Die gesamte lokale SQLite-Datenbank wird gelöscht. Diese Aktion ist unwiderruflich.',
+            confirmText: 'Zurücksetzen', danger: true
+          });
+          if (!ok) return;
+          try {
+            await idbDel('main');
+            toast('SQLite-Datenbank gelöscht. App wird neu geladen…', 'warn');
+            setTimeout(() => location.reload(), 500);
+          } catch (e) { toast(e.message, 'error'); }
+        }
+      }, [icon('trash'), 'Lokale SQLite-Datenbank löschen']));
+    }
+    return card;
+  }
+
   function renderDevView() {
     const section = h('section', { 'aria-labelledby': 'dev-title' });
     section.appendChild(h('div', { class: 'section-title' }, [h('h2', { id: 'dev-title', text: 'Entwickler-Werkzeuge' })]));
+
+    section.appendChild(renderBackendSelector());
 
     section.appendChild(h('div', { class: 'card' }, [
       h('h3', { class: 'mt-0', text: 'Backup' }),
@@ -1800,13 +1893,43 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   })();
 
   // -----------------------------------------------------------------
-  // 19. Boot
+  // 19. Boot (asynchron – wählt und initialisiert das aktive Backend)
   // -----------------------------------------------------------------
-  function boot() {
+  async function initBackend(which) {
+    if (which === BACKENDS.MOCK) {
+      return createMockBackend();
+    }
+    if (which === BACKENDS.SQLITE) {
+      return await createSqliteBackend();
+    }
+    return createFirebaseBackend();
+  }
+
+  async function selectBackendAndReload(which) {
+    writeBackendSetting(which);
+    if (which !== BACKENDS.SQLITE) {
+      // Firebase-/Mock-Daten sind unabhängig – einfach neu laden.
+    }
+    toast('Backend-Wechsel gespeichert. App wird neu geladen…', 'info');
+    setTimeout(() => location.reload(), 400);
+  }
+
+  async function boot() {
+    // Erste Ansicht sofort rendern (noch ohne Backend).
+    renderApp();
+    try {
+      const chosen = ACTIVE_BACKEND;
+      ({ db, auth, messaging } = await initBackend(chosen));
+    } catch (e) {
+      console.error('Backend-Init fehlgeschlagen', e);
+      toast('Backend "' + BACKEND_LABELS[ACTIVE_BACKEND] + '" nicht verfügbar. Lokales Mock wird verwendet.', 'error');
+      ({ db, auth, messaging } = createMockBackend());
+      ACTIVE_BACKEND = BACKENDS.MOCK;
+    }
     registerServiceWorker();
     renderApp();
-    if (MOCK_MODE) {
-      // In mock mode, skip auth listeners unless caller sets one.
+    if (ACTIVE_BACKEND === BACKENDS.MOCK) {
+      // Reiner Mock-Modus: keine echten Auth-Listener nötig.
       state.booted = true;
       return;
     }
@@ -1817,9 +1940,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // -----------------------------------------------------------------
-  // 20. Firebase Mock (for local e2e/unit testing without network)
+  // 20. Mock-Backend (In-Memory, für Tests und ?mock=1)
   // -----------------------------------------------------------------
-  function createFirebaseMock() {
+  function createMockBackend() {
     const store = { users: {}, services: {}, chat: {}, stats: {} };
     const watchers = new Map();
     function pathGet(p) { return p.split('/').filter(Boolean).reduce((o, k) => (o == null ? o : o[k]), store); }
@@ -1882,16 +2005,468 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // -----------------------------------------------------------------
-  // 21. Expose pure helpers for unit/e2e tests
+  // 21. SQLite-Backend (sql.js WASM + IndexedDB-Persistenz)
+  // -----------------------------------------------------------------
+  const SQLJS_VERSION = '1.10.3';
+  const SQLJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/' + SQLJS_VERSION + '/';
+  const IDB_NAME = 'minis-sqlite';
+  const IDB_STORE = 'db';
+
+  function loadSqlJsOnce() {
+    if (window.initSqlJs) return Promise.resolve(window.initSqlJs);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = SQLJS_BASE + 'sql-wasm.js';
+      s.crossOrigin = 'anonymous';
+      s.referrerPolicy = 'no-referrer';
+      s.onload = () => window.initSqlJs ? resolve(window.initSqlJs) : reject(new Error('sql.js initialisierung fehlgeschlagen.'));
+      s.onerror = () => reject(new Error('sql.js konnte nicht geladen werden.'));
+      document.head.appendChild(s);
+    });
+  }
+  function openIDB() {
+    return new Promise((resolve, reject) => {
+      const r = indexedDB.open(IDB_NAME, 1);
+      r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  }
+  function idbGet(key) {
+    return openIDB().then(idb => new Promise((res, rej) => {
+      const tx = idb.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+    }));
+  }
+  function idbPut(key, value) {
+    return openIDB().then(idb => new Promise((res, rej) => {
+      const tx = idb.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    }));
+  }
+  function idbDel(key) {
+    return openIDB().then(idb => new Promise((res, rej) => {
+      const tx = idb.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    }));
+  }
+
+  async function pbkdf2Hash(password, saltHex) {
+    const enc = new TextEncoder();
+    const salt = Uint8Array.from(saltHex.match(/.{2}/g).map(h => parseInt(h, 16)));
+    const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt, iterations: 120000, hash: 'SHA-256' }, key, 256);
+    return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  function randomSaltHex() {
+    const a = new Uint8Array(16);
+    crypto.getRandomValues(a);
+    return Array.from(a).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function createSqliteBackend() {
+    const initSqlJs = await loadSqlJsOnce();
+    const SQL = await initSqlJs({ locateFile: (f) => SQLJS_BASE + f });
+    const existing = await idbGet('main').catch(() => null);
+    const sqldb = existing ? new SQL.Database(new Uint8Array(existing)) : new SQL.Database();
+
+    sqldb.exec(
+      "CREATE TABLE IF NOT EXISTS users (" +
+      " uid TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE," +
+      " passwordHash TEXT, passwordSalt TEXT, displayName TEXT," +
+      " role TEXT NOT NULL DEFAULT 'user'," +
+      " mustChangePassword INTEGER NOT NULL DEFAULT 0, fcmToken TEXT, createdAt INTEGER" +
+      ");" +
+      "CREATE TABLE IF NOT EXISTS services (" +
+      " sid TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT DEFAULT ''," +
+      " startMs INTEGER NOT NULL, deadlineDays INTEGER DEFAULT 0, minSlots INTEGER DEFAULT 1," +
+      " color TEXT DEFAULT '#0066cc', replacement INTEGER DEFAULT 0, statsApplied INTEGER DEFAULT 0," +
+      " createdBy TEXT, createdAt INTEGER" +
+      ");" +
+      "CREATE INDEX IF NOT EXISTS idx_services_start ON services(startMs);" +
+      "CREATE TABLE IF NOT EXISTS serviceAttendees (" +
+      " sid TEXT NOT NULL, uid TEXT NOT NULL, username TEXT, displayName TEXT, ts INTEGER," +
+      " PRIMARY KEY (sid, uid)" +
+      ");" +
+      "CREATE TABLE IF NOT EXISTS chat (" +
+      " mid TEXT PRIMARY KEY, uid TEXT NOT NULL, username TEXT, displayName TEXT," +
+      " text TEXT NOT NULL, ts INTEGER NOT NULL, system INTEGER DEFAULT 0" +
+      ");" +
+      "CREATE INDEX IF NOT EXISTS idx_chat_ts ON chat(ts);" +
+      "CREATE TABLE IF NOT EXISTS stats (" +
+      " uid TEXT PRIMARY KEY, attended INTEGER DEFAULT 0, cancelled INTEGER DEFAULT 0," +
+      " lateCancelled INTEGER DEFAULT 0" +
+      ");"
+    );
+
+    // Seed-Account, damit beim ersten Start ein Admin existiert.
+    const cnt = sqldb.exec('SELECT COUNT(*) FROM users');
+    if (cnt.length && cnt[0].values[0][0] === 0) {
+      const salt = randomSaltHex();
+      const hash = await pbkdf2Hash('admin1234', salt);
+      sqldb.run(
+        'INSERT INTO users (uid, username, email, passwordHash, passwordSalt, displayName, role, mustChangePassword, createdAt) VALUES (?,?,?,?,?,?,?,?,?)',
+        ['seed-admin', 'admin', 'admin' + MAIL_DOMAIN, hash, salt, 'Admin', 'admin', 1, Date.now()]
+      );
+    }
+
+    let saveTimer = null;
+    function schedulePersist() {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try { idbPut('main', sqldb.export()).catch(() => {}); }
+        catch (e) { console.warn('SQLite persist', e); }
+        saveTimer = null;
+      }, 400);
+    }
+
+    function rows(sql, params) {
+      const r = sqldb.exec(sql, params || []);
+      if (!r.length) return [];
+      const { columns, values } = r[0];
+      return values.map(v => Object.fromEntries(columns.map((c, i) => [c, v[i]])));
+    }
+    function firstRow(sql, params) { const r = rows(sql, params); return r[0] || null; }
+
+    function userRowToObj(row) {
+      if (!row) return null;
+      return {
+        username: row.username,
+        displayName: row.displayName || row.username,
+        role: row.role,
+        mustChangePassword: !!row.mustChangePassword,
+        fcmToken: row.fcmToken || null
+      };
+    }
+    function loadAttendees(sid) {
+      const list = rows('SELECT * FROM serviceAttendees WHERE sid = ?', [sid]);
+      const out = {};
+      for (const a of list) out[a.uid] = { uid: a.uid, username: a.username, displayName: a.displayName, ts: a.ts };
+      return out;
+    }
+    function svcRowToObj(row) {
+      if (!row) return null;
+      return {
+        id: row.sid, title: row.title, description: row.description || '',
+        startMs: row.startMs, deadlineDays: row.deadlineDays || 0, minSlots: row.minSlots || 1,
+        color: row.color || '#0066cc', replacement: !!row.replacement, statsApplied: !!row.statsApplied,
+        createdBy: row.createdBy, createdAt: row.createdAt, attendees: loadAttendees(row.sid)
+      };
+    }
+    function statsRowToObj(row) {
+      if (!row) return { attended: 0, cancelled: 0, lateCancelled: 0 };
+      return { attended: row.attended || 0, cancelled: row.cancelled || 0, lateCancelled: row.lateCancelled || 0 };
+    }
+    function chatRowToObj(row) {
+      return { uid: row.uid, username: row.username, displayName: row.displayName, text: row.text, ts: row.ts, system: !!row.system };
+    }
+
+    function readPath(p, limit) {
+      const parts = p.split('/').filter(Boolean);
+      if (!parts.length) return exportTree();
+      const root = parts[0];
+      if (root === 'users') {
+        if (parts.length === 1) {
+          const out = {};
+          for (const r of rows('SELECT * FROM users')) out[r.uid] = userRowToObj(r);
+          return out;
+        }
+        const u = userRowToObj(firstRow('SELECT * FROM users WHERE uid = ?', [parts[1]]));
+        if (parts.length === 2) return u;
+        return u ? (u[parts[2]] == null ? null : u[parts[2]]) : null;
+      }
+      if (root === 'services') {
+        if (parts.length === 1) {
+          const out = {};
+          for (const r of rows('SELECT * FROM services')) out[r.sid] = svcRowToObj(r);
+          return out;
+        }
+        const sid = parts[1];
+        const svc = svcRowToObj(firstRow('SELECT * FROM services WHERE sid = ?', [sid]));
+        if (parts.length === 2) return svc;
+        if (parts[2] === 'attendees') {
+          if (parts.length === 3) return svc ? svc.attendees : null;
+          return svc ? (svc.attendees[parts[3]] || null) : null;
+        }
+        return svc ? (svc[parts[2]] == null ? null : svc[parts[2]]) : null;
+      }
+      if (root === 'chat') {
+        if (parts.length === 1) {
+          const lim = limit || 100000;
+          const list = rows('SELECT * FROM chat ORDER BY ts DESC LIMIT ?', [lim]).reverse();
+          const out = {};
+          for (const r of list) out[r.mid] = chatRowToObj(r);
+          return out;
+        }
+        return chatRowToObj(firstRow('SELECT * FROM chat WHERE mid = ?', [parts[1]]));
+      }
+      if (root === 'stats') {
+        if (parts.length === 1) {
+          const out = {};
+          for (const r of rows('SELECT * FROM stats')) out[r.uid] = statsRowToObj(r);
+          return out;
+        }
+        const st = statsRowToObj(firstRow('SELECT * FROM stats WHERE uid = ?', [parts[1]]));
+        if (parts.length === 2) return st;
+        return st[parts[2]] || 0;
+      }
+      return null;
+    }
+
+    function exportTree() {
+      return {
+        users: readPath('/users'),
+        services: readPath('/services'),
+        chat: readPath('/chat'),
+        stats: readPath('/stats')
+      };
+    }
+
+    function writePath(p, value) {
+      const parts = p.split('/').filter(Boolean);
+      if (!parts.length) { // wiederherstellen aus Backup
+        sqldb.run('DELETE FROM users'); sqldb.run('DELETE FROM services');
+        sqldb.run('DELETE FROM serviceAttendees'); sqldb.run('DELETE FROM chat');
+        sqldb.run('DELETE FROM stats');
+        const t = value || {};
+        for (const uid in (t.users || {}))    writePath('users/' + uid, t.users[uid]);
+        for (const sid in (t.services || {})) writePath('services/' + sid, t.services[sid]);
+        for (const mid in (t.chat || {}))     writePath('chat/' + mid, t.chat[mid]);
+        for (const uid in (t.stats || {}))    writePath('stats/' + uid, t.stats[uid]);
+        return;
+      }
+      const root = parts[0];
+      if (root === 'users') {
+        const uid = parts[1];
+        if (parts.length === 2) {
+          if (value === null) { sqldb.run('DELETE FROM users WHERE uid = ?', [uid]); return; }
+          sqldb.run(
+            'INSERT INTO users (uid, username, email, passwordHash, passwordSalt, displayName, role, mustChangePassword, fcmToken, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?)' +
+            ' ON CONFLICT(uid) DO UPDATE SET username=excluded.username, email=COALESCE(excluded.email, users.email),' +
+            ' passwordHash=COALESCE(excluded.passwordHash, users.passwordHash),' +
+            ' passwordSalt=COALESCE(excluded.passwordSalt, users.passwordSalt),' +
+            ' displayName=excluded.displayName, role=excluded.role,' +
+            ' mustChangePassword=excluded.mustChangePassword, fcmToken=COALESCE(excluded.fcmToken, users.fcmToken)',
+            [
+              uid, value.username || uid, value.email || null,
+              value.passwordHash || null, value.passwordSalt || null,
+              value.displayName || null, value.role || 'user',
+              value.mustChangePassword ? 1 : 0, value.fcmToken || null,
+              value.createdAt || Date.now()
+            ]
+          );
+          return;
+        }
+        const field = parts[2];
+        const allowed = ['username','email','displayName','role','mustChangePassword','fcmToken','passwordHash','passwordSalt'];
+        if (!allowed.includes(field)) return;
+        const v = field === 'mustChangePassword' ? (value ? 1 : 0) : value;
+        sqldb.run('INSERT INTO users (uid, username, ' + field + ') VALUES (?, ?, ?)' +
+          ' ON CONFLICT(uid) DO UPDATE SET ' + field + ' = excluded.' + field, [uid, uid, v]);
+        return;
+      }
+      if (root === 'services') {
+        const sid = parts[1];
+        if (parts.length === 2) {
+          if (value === null) {
+            sqldb.run('DELETE FROM services WHERE sid = ?', [sid]);
+            sqldb.run('DELETE FROM serviceAttendees WHERE sid = ?', [sid]);
+            return;
+          }
+          sqldb.run(
+            'INSERT INTO services (sid, title, description, startMs, deadlineDays, minSlots, color, replacement, statsApplied, createdBy, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)' +
+            ' ON CONFLICT(sid) DO UPDATE SET title=excluded.title, description=excluded.description, startMs=excluded.startMs,' +
+            ' deadlineDays=excluded.deadlineDays, minSlots=excluded.minSlots, color=excluded.color,' +
+            ' replacement=excluded.replacement, statsApplied=excluded.statsApplied',
+            [
+              sid, value.title || '', value.description || '', value.startMs || 0,
+              value.deadlineDays || 0, value.minSlots || 1, value.color || '#0066cc',
+              value.replacement ? 1 : 0, value.statsApplied ? 1 : 0,
+              value.createdBy || null, value.createdAt || Date.now()
+            ]
+          );
+          sqldb.run('DELETE FROM serviceAttendees WHERE sid = ?', [sid]);
+          const att = value.attendees || {};
+          for (const uid in att) {
+            const a = att[uid];
+            sqldb.run('INSERT INTO serviceAttendees (sid, uid, username, displayName, ts) VALUES (?,?,?,?,?)',
+              [sid, uid, a.username || null, a.displayName || null, a.ts || Date.now()]);
+          }
+          return;
+        }
+        if (parts[2] === 'attendees') {
+          if (parts.length === 3) {
+            sqldb.run('DELETE FROM serviceAttendees WHERE sid = ?', [sid]);
+            const atts = value || {};
+            for (const uid in atts) {
+              const a = atts[uid];
+              sqldb.run('INSERT INTO serviceAttendees (sid, uid, username, displayName, ts) VALUES (?,?,?,?,?)',
+                [sid, uid, a.username || null, a.displayName || null, a.ts || Date.now()]);
+            }
+            return;
+          }
+          const uid = parts[3];
+          if (value === null) { sqldb.run('DELETE FROM serviceAttendees WHERE sid = ? AND uid = ?', [sid, uid]); return; }
+          sqldb.run(
+            'INSERT INTO serviceAttendees (sid, uid, username, displayName, ts) VALUES (?,?,?,?,?)' +
+            ' ON CONFLICT(sid, uid) DO UPDATE SET username=excluded.username, displayName=excluded.displayName, ts=excluded.ts',
+            [sid, uid, value.username || null, value.displayName || null, value.ts || Date.now()]
+          );
+          return;
+        }
+        const field = parts[2];
+        const allowed = ['title','description','startMs','deadlineDays','minSlots','color','replacement','statsApplied'];
+        if (!allowed.includes(field)) return;
+        const v = (field === 'replacement' || field === 'statsApplied') ? (value ? 1 : 0) : value;
+        sqldb.run('UPDATE services SET ' + field + ' = ? WHERE sid = ?', [v, sid]);
+        return;
+      }
+      if (root === 'chat') {
+        const mid = parts[1];
+        if (parts.length === 2) {
+          if (value === null) { sqldb.run('DELETE FROM chat WHERE mid = ?', [mid]); return; }
+          sqldb.run(
+            'INSERT INTO chat (mid, uid, username, displayName, text, ts, system) VALUES (?,?,?,?,?,?,?)' +
+            ' ON CONFLICT(mid) DO UPDATE SET text=excluded.text, ts=excluded.ts, system=excluded.system',
+            [mid, value.uid || '', value.username || null, value.displayName || null, value.text || '', value.ts || Date.now(), value.system ? 1 : 0]
+          );
+        }
+        return;
+      }
+      if (root === 'stats') {
+        const uid = parts[1];
+        if (parts.length === 2) {
+          if (value === null) { sqldb.run('DELETE FROM stats WHERE uid = ?', [uid]); return; }
+          sqldb.run(
+            'INSERT INTO stats (uid, attended, cancelled, lateCancelled) VALUES (?,?,?,?)' +
+            ' ON CONFLICT(uid) DO UPDATE SET attended=excluded.attended, cancelled=excluded.cancelled, lateCancelled=excluded.lateCancelled',
+            [uid, value.attended || 0, value.cancelled || 0, value.lateCancelled || 0]
+          );
+          return;
+        }
+        const field = parts[2];
+        const allowed = ['attended','cancelled','lateCancelled'];
+        if (!allowed.includes(field)) return;
+        sqldb.run('INSERT INTO stats (uid, ' + field + ') VALUES (?, ?) ON CONFLICT(uid) DO UPDATE SET ' + field + ' = excluded.' + field, [uid, value || 0]);
+      }
+    }
+
+    const watchers = new Map(); // path -> { limit, cbs }
+    function notifyPath(p) {
+      schedulePersist();
+      for (const [key, slot] of watchers) {
+        if (p === key || p.indexOf(key + '/') === 0 || key.indexOf(p + '/') === 0 || key === '/') {
+          const snap = readPath(key, slot.limit);
+          slot.cbs.forEach(cb => cb({ val: () => snap }));
+        }
+      }
+    }
+
+    function refImpl(p, limit) {
+      const isRoot = !p || p === '/' || p === '';
+      p = '/' + (p || '').replace(/^\/+|\/+$/g, '');
+      return {
+        key: isRoot ? null : p.split('/').pop(),
+        async once() { return { val: () => readPath(p, limit) }; },
+        async set(v) { writePath(p, v); notifyPath(p); },
+        async update(obj) {
+          const cur = readPath(p) || {};
+          const merged = Object.assign({}, cur, obj);
+          writePath(p, merged); notifyPath(p);
+        },
+        async remove() { writePath(p, null); notifyPath(p); },
+        push(value) {
+          const id = 'm' + Date.now() + Math.random().toString(36).slice(2, 6);
+          const childPath = p + '/' + id;
+          const child = refImpl(childPath);
+          if (value !== undefined) { writePath(childPath, value); notifyPath(p); }
+          child.key = id;
+          return child;
+        },
+        on(_evt, cb) {
+          if (!watchers.has(p)) watchers.set(p, { limit, cbs: [] });
+          const slot = watchers.get(p);
+          if (limit != null) slot.limit = limit;
+          slot.cbs.push(cb);
+          cb({ val: () => readPath(p, slot.limit) });
+        },
+        off() { watchers.delete(p); },
+        limitToLast(n) { return refImpl(p, n); },
+        async transaction(fn) {
+          const cur = readPath(p);
+          const next = fn(cur);
+          writePath(p, next); notifyPath(p);
+          return { committed: true, snapshot: { val: () => next } };
+        }
+      };
+    }
+    function ref(p) { return refImpl(p); }
+
+    // Auth (lokal, PBKDF2-SHA256)
+    const authState = { currentUser: null, listeners: [] };
+    function makeCurrentUser(uid, email) {
+      return {
+        uid, email,
+        async updatePassword(newPw) {
+          const salt = randomSaltHex();
+          const hash = await pbkdf2Hash(newPw, salt);
+          sqldb.run('UPDATE users SET passwordHash = ?, passwordSalt = ? WHERE uid = ?', [hash, salt, uid]);
+          schedulePersist();
+        }
+      };
+    }
+    const sqliteAuth = {
+      get currentUser() { return authState.currentUser; },
+      onAuthStateChanged(cb) { authState.listeners.push(cb); cb(authState.currentUser); return () => {}; },
+      async signInWithEmailAndPassword(email, password) {
+        const username = String(email || '').split('@')[0];
+        const row = firstRow('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
+        if (!row) { const e = new Error('Benutzer nicht gefunden.'); e.code = 'auth/user-not-found'; throw e; }
+        if (!row.passwordHash) { const e = new Error('Kein Passwort gesetzt.'); e.code = 'auth/invalid-credential'; throw e; }
+        const hash = await pbkdf2Hash(password, row.passwordSalt || '');
+        if (hash !== row.passwordHash) { const e = new Error('Falsches Passwort.'); e.code = 'auth/wrong-password'; throw e; }
+        authState.currentUser = makeCurrentUser(row.uid, row.email || email);
+        authState.listeners.forEach(cb => cb(authState.currentUser));
+        return { user: authState.currentUser };
+      },
+      async signOut() {
+        authState.currentUser = null;
+        authState.listeners.forEach(cb => cb(null));
+      }
+    };
+
+    return {
+      db: { ref },
+      auth: sqliteAuth,
+      messaging: null,
+      __sqlite: {
+        engine: sqldb,
+        persistNow: () => idbPut('main', sqldb.export()),
+        reset: async () => { await idbDel('main'); }
+      }
+    };
+  }
+
+  // -----------------------------------------------------------------
+  // 22. Expose pure helpers for unit/e2e tests
   // -----------------------------------------------------------------
   window.__MinisTest = Object.freeze({
-    VIEWS, ROLES,
+    VIEWS, ROLES, BACKENDS, BACKEND_LABELS,
     DAY_MS,
     daysBetween, addDays, isPast, formatDateTime, localDateTimeInputValue, parseDateTimeLocal,
     isLateCancellation, generateWeeklySeries,
     sanitizePlainText, usernameToEmail, validUsername, validPassword,
     h, clear,
     enterDevMode,
+    readBackendSetting, writeBackendSetting,
+    get activeBackend() { return ACTIVE_BACKEND; },
     get state() { return state; },
     mapAuthError
   });

@@ -71,6 +71,9 @@ Cloud Messaging) wird von Firebase bereitgestellt.
   Bestätigungs-Modal (nur für Dev).
 - **PWA** – Installierbar, offlinefähig, Service Worker als Blob-URL im selben
   Dokument registriert.
+- **Backends umschaltbar** – Firebase (Cloud), **SQLite lokal** (sql.js WASM,
+  IndexedDB-Persistenz) oder Mock im Arbeitsspeicher; die Auswahl erfolgt im
+  Dev-Bereich und wird im Browser gespeichert.
 - **Intergenerationelles UI** – Glassmorphismus-Pro-Tool-Look statt
   kindlicher Ästhetik, responsiv vom Smartphone bis zum Desktop.
 
@@ -107,6 +110,38 @@ index.html
 - **Service Worker im selben Dokument** – Der SW-Code wird als String in ein
   `Blob` gepackt, per `URL.createObjectURL` registriert und verfolgt eine
   `Network-first`-Strategie (Realtime-Daten haben Vorrang).
+
+## Backends
+
+Die App abstrahiert den Datenzugriff hinter einer einheitlichen Schnittstelle
+(`ref()`, `on()`, `once()`, `push()`, `limitToLast()`, `transaction()`) und
+bietet drei Implementierungen:
+
+| Backend   | Einsatzgebiet                             | Persistenz               | Auth                        |
+|-----------|-------------------------------------------|--------------------------|-----------------------------|
+| Firebase  | Produktivbetrieb                          | Realtime Database Cloud  | Firebase Auth (Email/PW)    |
+| **SQLite** | **Übergangslösung / Offline-Testbetrieb** | **IndexedDB (WASM-DB)** | Lokal (PBKDF2-SHA256)       |
+| Mock      | Unit- und E2E-Tests                       | Arbeitsspeicher          | Automatisches Einloggen     |
+
+### Backend umschalten
+
+- **Administrativ**: Dev-Zugang → Tab „Dev“ → Karte „Backend / Verbindung“ →
+  Option wählen → „Backend übernehmen (Neuladen)“. Die Auswahl bleibt
+  pro Browser im `localStorage` erhalten (`minis.backend`).
+- **URL-Override** (für Tests): `?backend=sqlite`, `?backend=mock`,
+  `?backend=firebase` oder die Abkürzung `?mock=1`.
+
+### SQLite-Details
+
+- Lädt `sql-wasm.js` und `sql-wasm.wasm` von cdnjs (v1.10.3).
+- Schema mit echten relationalen Tabellen (`users`, `services`,
+  `serviceAttendees`, `chat`, `stats`) inkl. Indizes und `ON CONFLICT`-Upserts.
+- Persistenz: die vollständige SQLite-Binärdatei wird debounced
+  (400 ms) in IndexedDB (`minis-sqlite` Store) gespeichert.
+- Passwörter: PBKDF2 (120 000 Iterationen, SHA-256) mit pro Account zufällig
+  generiertem 16-Byte-Salt.
+- Seed-Account beim ersten Start: Benutzer `admin`, Passwort `admin1234`,
+  Rolle Admin, mit aktivem Pflicht-Passwortwechsel.
 
 ## Voraussetzungen
 
