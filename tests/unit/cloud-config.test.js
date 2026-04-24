@@ -49,10 +49,16 @@ describe('cloud project configuration', () => {
   });
 
   it('keeps direct table access closed behind API routes', () => {
-    expect(schemaSql).toContain('alter table public.app_state enable row level security');
+    expect(schemaSql).toContain('create table if not exists public.app_users');
+    expect(schemaSql).toContain('create table if not exists public.service_events');
+    expect(schemaSql).toContain('create table if not exists public.service_attendees');
+    expect(schemaSql).toContain('create table if not exists public.user_stats');
+    expect(schemaSql).toContain('create table if not exists public.chat_messages');
+    expect(schemaSql).toContain('alter table public.app_users enable row level security');
     expect(schemaSql).toContain('using (false)');
     expect(schemaSql).toContain('with check (false)');
-    expect(schemaSql).toContain('grant select, insert, update, delete on table public.app_state to service_role');
+    expect(schemaSql).toContain('grant select, insert, update, delete on table public.app_users to service_role');
+    expect(schemaSql).toContain('grant select, insert, update, delete on table public.service_events to service_role');
     expect(schemaSql).not.toMatch(/grant\s+select.*\bto\s+anon\b/i);
   });
 });

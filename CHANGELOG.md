@@ -20,7 +20,7 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - `api/*` Gateway-Routen für Auth, Datenzugriff, Benutzeranlage und Healthcheck.
-- `supabase/schema.sql` mit RLS-geschützter `public.app_state` Tabelle.
+- `supabase/schema.sql` mit RLS-geschütztem 3NF-Tabellenschema.
 - `vercel.json`, `.env.example` und Deployment-Dokumentation.
 - Unit-Tests für Cloud-Konfiguration, Vercel-Headers und RLS-Schema.
 

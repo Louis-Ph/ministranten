@@ -8,7 +8,10 @@
   Google/GitHub/Microsoft OAuth only.
 - The browser never receives the database password or service-role key.
 - All app data goes through Vercel API routes, which validate the Supabase session and role before reading or writing.
-- The database table `public.app_state` has RLS enabled and denies direct client access.
+- The database schema is normalized to third normal form: roles, users,
+  service events, service attendees, user stats and chat messages are stored in
+  separate tables with foreign keys.
+- Every app table has RLS enabled and denies direct client access.
 
 ## Required Vercel Environment Variables
 
@@ -36,15 +39,27 @@ a Vercel server-side environment variable.
 
 1. Create a Supabase project in an EU region when possible.
 2. Run `supabase/schema.sql` in the Supabase SQL editor. It uses
-   `create table if not exists` and an idempotent insert, so it is safe to run
-   again during deployment hardening. It also grants table access only to the
-   server-side `service_role`; direct browser keys remain blocked by RLS/no
-   client grant.
+   `create table if not exists`, idempotent role seeds and idempotent grants, so
+   it is safe to run again during deployment hardening. It also grants table
+   access only to the server-side `service_role`; direct browser keys remain
+   blocked by RLS/no client grant.
 3. Enable Auth providers: Google, GitHub and Azure (Microsoft).
 4. Add OAuth redirect URLs:
    - `https://<project-ref>.supabase.co/auth/v1/callback` in each provider console.
    - `https://<your-vercel-domain>/index.html?backend=cloud` in Supabase Auth URL configuration.
-5. Create the first dev user from Supabase Auth, then add a matching profile in `public.app_state.data.users`.
+5. Create the first dev user from Supabase Auth, then add a matching profile in
+   `public.app_users`.
+
+## Normalized Tables
+
+| Table | Purpose |
+|-------|---------|
+| `app_roles` | Stable role catalogue: `user`, `admin`, `dev` |
+| `app_users` | One row per Supabase Auth user and role assignment |
+| `service_events` | One row per planned service |
+| `service_attendees` | Many-to-many relation between services and users |
+| `user_stats` | One aggregate stats row per user |
+| `chat_messages` | One row per chat or system message |
 
 ## Free OAuth Baseline
 
@@ -70,30 +85,32 @@ only after confirming that the organization has an Apple Developer Program fee
 waiver or accepts the annual paid membership. It is therefore disabled by
 default.
 
-## First Dev Profile Shape
+## First Dev Profile
 
-```json
-{
-  "users": {
-    "<supabase-user-id>": {
-      "username": "dev",
-      "email": "dev@example.org",
-      "displayName": "Developer",
-      "role": "dev",
-      "mustChangePassword": false,
-      "createdAt": 0
-    }
-  },
-  "publicProfiles": {
-    "<supabase-user-id>": {
-      "username": "dev",
-      "displayName": "Developer"
-    }
-  },
-  "services": {},
-  "stats": {},
-  "chat": {}
-}
+After creating the first user in Supabase Auth, insert the matching profile:
+
+```sql
+insert into public.app_users (
+  user_id,
+  username,
+  email,
+  display_name,
+  role_id,
+  must_change_password
+) values (
+  '<supabase-auth-user-id>',
+  'dev',
+  'dev@example.org',
+  'Developer',
+  'dev',
+  false
+)
+on conflict (user_id) do update set
+  username = excluded.username,
+  email = excluded.email,
+  display_name = excluded.display_name,
+  role_id = excluded.role_id,
+  must_change_password = excluded.must_change_password;
 ```
 
 ## Local Development
@@ -129,8 +146,7 @@ Expected healthy response:
 }
 ```
 
-If the table exists but the `main` row is missing, the API creates that root row
-automatically on first healthcheck/data access. If the table itself is missing,
-the response uses `schema_not_installed`; run `supabase/schema.sql` once.
+If one of the normalized tables is missing, the response uses
+`schema_not_installed`; run `supabase/schema.sql` once.
 If the response uses `db_permission_denied`, run `supabase/schema.sql` again so
 the `service_role` GRANT statements are applied.

@@ -23,10 +23,15 @@ Sicherheitsprinzipien:
 - CSP, SRI und Service-Worker-Scheme-Guards bleiben verpflichtend.
 
 Datenmodell:
-- public.app_state haelt den aktuellen App-Zustand als JSONB-Dokument.
-- Root-Bereiche: users, publicProfiles, services, stats, chat.
+- Supabase Postgres ist in dritter Normalform modelliert.
+- app_roles definiert die Rollenhierarchie.
+- app_users haelt Benutzerprofil, Rolle und Passwortwechsel-Flag.
+- service_events haelt Diensttermine.
+- service_attendees bildet die n:m-Beziehung zwischen Dienstterminen und
+  Benutzern.
+- user_stats haelt genau eine aggregierte Statistikzeile pro Benutzer.
+- chat_messages haelt Chat- und Systemmeldungen.
 - Private user-Daten werden nicht an normale Nutzer als Root exportiert.
-- publicProfiles trennt Anzeigenamen von Verwaltungsdaten.
 
 Rollen:
 - user: eigene Teilnahme, Chat, eigenes Profil, eigene Statistik.

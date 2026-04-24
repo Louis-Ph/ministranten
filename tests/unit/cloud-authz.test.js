@@ -83,7 +83,7 @@ describe('cloud API authorization helpers', () => {
     }
   });
 
-  it('creates the default root row when the Supabase table is empty', async () => {
+  it('returns the default root shape from empty normalized tables', async () => {
     const previousEnv = {
       SUPABASE_URL: process.env.SUPABASE_URL,
       SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_PUBLISHABLE_KEY,
@@ -97,17 +97,14 @@ describe('cloud API authorization helpers', () => {
       process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
       globalThis.fetch = async (url, options) => {
         calls.push({ url: String(url), method: options && options.method });
-        if (options && options.method === 'POST') return new Response('', { status: 201 });
         return new Response(JSON.stringify([]), {
           status: 200,
           headers: { 'content-type': 'application/json' }
         });
       };
       await expect(getRootState()).resolves.toEqual(defaultRootState());
-      expect(calls).toEqual([
-        expect.objectContaining({ method: 'GET' }),
-        expect.objectContaining({ method: 'POST' })
-      ]);
+      expect(calls).toHaveLength(5);
+      expect(calls.every(call => call.method === 'GET')).toBe(true);
     } finally {
       globalThis.fetch = previousFetch;
       for (const [key, value] of Object.entries(previousEnv)) {

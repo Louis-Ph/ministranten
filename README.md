@@ -23,7 +23,7 @@ aus dem Browser in eine Datenbank. Der Cloud-Betrieb ist jetzt so getrennt:
 |-------|-------|
 | `index.html` | PWA, UI, Rollenlogik, Mock/SQLite-Fallback |
 | `api/*` | Vercel Node.js API Routes, Auth- und Daten-Gateway |
-| `supabase/schema.sql` | Supabase Postgres Tabelle `public.app_state` mit RLS |
+| `supabase/schema.sql` | Supabase Postgres Schema in 3NF mit RLS |
 | `.env.example` | Dokumentierte Runtime-Variablen ohne echte Secrets |
 | `vercel.json` | Vercel Routing und Sicherheitsheader |
 
@@ -105,7 +105,9 @@ npm run test
 
 - Keine Secrets im Browserbundle.
 - Supabase `service_role` nur serverseitig in Vercel Runtime-Variablen.
-- `public.app_state` hat RLS aktiv und verweigert direkten Clientzugriff.
+- Produktivdaten liegen in normalisierten Tabellen (`app_users`,
+  `service_events`, `service_attendees`, `user_stats`, `chat_messages`).
+- Alle App-Tabellen haben RLS aktiv und verweigern direkten Clientzugriff.
 - API-Routen prüfen Supabase JWT, App-Rolle und Pfadberechtigung.
 - CSP begrenzt Skripte, Styles, Fonts und Cloud-Verbindungen.
 - Dynamische Nutzerdaten werden nicht per `innerHTML` gerendert.

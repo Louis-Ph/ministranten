@@ -7,13 +7,12 @@ const {
   limitObjectTail,
   mergePlain,
   pathGet,
-  pathSet,
   readBody,
   requireUser,
   roleFor,
-  saveRootState,
   sendError,
-  sendJson
+  sendJson,
+  writeDataPath
 } = require('./_lib/cloud');
 
 module.exports = async function handler(req, res) {
@@ -44,8 +43,7 @@ module.exports = async function handler(req, res) {
         : body.value;
 
     assertWriteAllowed(path, user.id, role, value);
-    const nextRoot = pathSet(root, path, value);
-    await saveRootState(nextRoot);
+    await writeDataPath(path, value);
     return sendJson(res, 200, { ok: true });
   } catch (err) {
     return sendError(res, err);

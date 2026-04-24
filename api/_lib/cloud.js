@@ -11,6 +11,15 @@ const DEFAULT_ROOT_STATE = Object.freeze({
   stats: {},
   chat: {}
 });
+const REST_TABLES = Object.freeze({
+  ROLES: 'app_roles',
+  USERS: 'app_users',
+  SERVICES: 'service_events',
+  ATTENDEES: 'service_attendees',
+  STATS: 'user_stats',
+  CHAT: 'chat_messages'
+});
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 class HttpError extends Error {
   constructor(status, message, code) {
@@ -188,6 +197,187 @@ function defaultRootState() {
   return clone(DEFAULT_ROOT_STATE);
 }
 
+function isUuid(value) {
+  return UUID_RE.test(String(value || ''));
+}
+
+function msToIso(value, fallback) {
+  const ms = Number(value);
+  if (Number.isFinite(ms) && ms > 0) return new Date(ms).toISOString();
+  return new Date(fallback == null ? Date.now() : fallback).toISOString();
+}
+
+function isoToMs(value) {
+  const ms = Date.parse(value || '');
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function restPath(table, query) {
+  return '/rest/v1/' + table + (query ? '?' + query : '');
+}
+
+function eq(column, value) {
+  return encodeURIComponent(column) + '=eq.' + encodeURIComponent(String(value));
+}
+
+async function selectRows(table, query) {
+  return await supabaseFetch(restPath(table, query || 'select=*'), {
+    method: 'GET',
+    service: true
+  });
+}
+
+async function upsertRows(table, rows, conflict) {
+  const payload = Array.isArray(rows) ? rows : [rows];
+  if (!payload.length) return;
+  await supabaseFetch(restPath(table, conflict ? 'on_conflict=' + encodeURIComponent(conflict) : ''), {
+    method: 'POST',
+    service: true,
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+async function patchRows(table, filter, patch) {
+  if (!patch || !Object.keys(patch).length) return;
+  await supabaseFetch(restPath(table, filter), {
+    method: 'PATCH',
+    service: true,
+    headers: {
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal'
+    },
+    body: JSON.stringify(patch)
+  });
+}
+
+async function deleteRows(table, filter) {
+  await supabaseFetch(restPath(table, filter), {
+    method: 'DELETE',
+    service: true,
+    headers: { Prefer: 'return=minimal' }
+  });
+}
+
+function userRowToPrivateProfile(row) {
+  return {
+    username: row.username,
+    email: row.email,
+    displayName: row.display_name || row.username,
+    role: row.role_id || 'user',
+    mustChangePassword: !!row.must_change_password,
+    createdAt: isoToMs(row.created_at)
+  };
+}
+
+function publicProfileFromUser(profile) {
+  return {
+    username: profile.username,
+    displayName: profile.displayName || profile.username
+  };
+}
+
+function userRow(uid, profile) {
+  const username = String(profile && profile.username || '').trim().toLowerCase();
+  return {
+    user_id: uid,
+    username,
+    email: String(profile && profile.email || (username ? username + '@minis-wettstetten.de' : '')).toLowerCase(),
+    display_name: String(profile && profile.displayName || username || uid).slice(0, 60),
+    role_id: ['user', 'admin', 'dev'].includes(profile && profile.role) ? profile.role : 'user',
+    must_change_password: profile && profile.mustChangePassword === false ? false : true,
+    created_at: msToIso(profile && profile.createdAt)
+  };
+}
+
+function serviceRow(serviceId, service) {
+  return {
+    service_id: serviceId,
+    title: String(service && service.title || '').slice(0, 120),
+    description: String(service && service.description || '').slice(0, 1200),
+    start_at: msToIso(service && service.startMs),
+    deadline_days: Math.max(0, Math.min(30, Number(service && service.deadlineDays) || 0)),
+    min_slots: Math.max(1, Math.min(50, Number(service && service.minSlots) || 1)),
+    color: /^#[0-9a-fA-F]{6}$/.test(service && service.color) ? service.color : '#0066cc',
+    replacement_needed: !!(service && service.replacement),
+    stats_applied: !!(service && service.statsApplied),
+    created_by: isUuid(service && service.createdBy) ? service.createdBy : null,
+    created_at: msToIso(service && service.createdAt)
+  };
+}
+
+function serviceRowToModel(row) {
+  return {
+    title: row.title,
+    description: row.description || '',
+    startMs: isoToMs(row.start_at),
+    deadlineDays: row.deadline_days || 0,
+    minSlots: row.min_slots || 1,
+    color: row.color || '#0066cc',
+    replacement: !!row.replacement_needed,
+    statsApplied: !!row.stats_applied,
+    createdBy: row.created_by || null,
+    createdAt: isoToMs(row.created_at),
+    attendees: {}
+  };
+}
+
+function attendeeRow(serviceId, attendee) {
+  return {
+    service_id: serviceId,
+    user_id: attendee && attendee.uid,
+    signed_up_at: msToIso(attendee && attendee.ts)
+  };
+}
+
+function statsRow(uid, stats) {
+  return {
+    user_id: uid,
+    attended: Math.max(0, Number(stats && stats.attended) || 0),
+    cancelled: Math.max(0, Number(stats && stats.cancelled) || 0),
+    late_cancelled: Math.max(0, Number(stats && stats.lateCancelled) || 0)
+  };
+}
+
+function chatRow(messageId, message) {
+  const isSystem = !!(message && message.system);
+  return {
+    message_id: messageId,
+    author_user_id: !isSystem && isUuid(message && message.uid) ? message.uid : null,
+    body: String(message && message.text || '').slice(0, 2000),
+    system: isSystem,
+    triggered_by: isUuid(message && message.triggeredBy) ? message.triggeredBy : null,
+    created_at: msToIso(message && message.ts)
+  };
+}
+
+function chatRowToModel(row, users) {
+  const profile = row.author_user_id ? users[row.author_user_id] : null;
+  const triggeredBy = row.triggered_by || null;
+  if (row.system) {
+    return {
+      uid: '__system__',
+      username: 'SYSTEM',
+      displayName: 'SYSTEM',
+      text: row.body,
+      ts: isoToMs(row.created_at),
+      system: true,
+      triggeredBy
+    };
+  }
+  return {
+    uid: row.author_user_id,
+    username: profile ? profile.username : '',
+    displayName: profile ? profile.displayName : '',
+    text: row.body,
+    ts: isoToMs(row.created_at),
+    system: false
+  };
+}
+
 function bearer(req) {
   const header = req.headers.authorization || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
@@ -219,26 +409,187 @@ function enforceEmailDomain(email) {
 }
 
 async function getRootState() {
-  const rows = await supabaseFetch('/rest/v1/app_state?id=eq.' + encodeURIComponent(ROOT_ID) + '&select=data', {
-    method: 'GET',
-    service: true
-  });
-  if (rows && rows[0] && rows[0].data) return rows[0].data;
-  const initial = defaultRootState();
-  await saveRootState(initial);
-  return initial;
+  const [userRows, serviceRows, attendeeRows, statsRows, chatRows] = await Promise.all([
+    selectRows(REST_TABLES.USERS, 'select=user_id,username,email,display_name,role_id,must_change_password,created_at&order=username.asc'),
+    selectRows(REST_TABLES.SERVICES, 'select=service_id,title,description,start_at,deadline_days,min_slots,color,replacement_needed,stats_applied,created_by,created_at&order=start_at.asc'),
+    selectRows(REST_TABLES.ATTENDEES, 'select=service_id,user_id,signed_up_at&order=signed_up_at.asc'),
+    selectRows(REST_TABLES.STATS, 'select=user_id,attended,cancelled,late_cancelled'),
+    selectRows(REST_TABLES.CHAT, 'select=message_id,author_user_id,body,system,triggered_by,created_at&order=created_at.asc')
+  ]);
+  const root = defaultRootState();
+  for (const row of userRows || []) {
+    const profile = userRowToPrivateProfile(row);
+    root.users[row.user_id] = profile;
+    root.publicProfiles[row.user_id] = publicProfileFromUser(profile);
+  }
+  for (const row of serviceRows || []) {
+    root.services[row.service_id] = serviceRowToModel(row);
+  }
+  for (const row of attendeeRows || []) {
+    const service = root.services[row.service_id];
+    const profile = root.users[row.user_id];
+    if (!service || !profile) continue;
+    service.attendees[row.user_id] = {
+      uid: row.user_id,
+      username: profile.username,
+      displayName: profile.displayName || profile.username,
+      ts: isoToMs(row.signed_up_at)
+    };
+  }
+  for (const row of statsRows || []) {
+    root.stats[row.user_id] = {
+      attended: row.attended || 0,
+      cancelled: row.cancelled || 0,
+      lateCancelled: row.late_cancelled || 0
+    };
+  }
+  for (const row of chatRows || []) {
+    root.chat[row.message_id] = chatRowToModel(row, root.users);
+  }
+  return root;
+}
+
+async function replaceServices(services) {
+  await deleteRows(REST_TABLES.ATTENDEES, 'service_id=not.is.null');
+  await deleteRows(REST_TABLES.SERVICES, 'service_id=not.is.null');
+  const serviceRows = [];
+  const attendeeRows = [];
+  for (const [serviceId, service] of Object.entries(services || {})) {
+    serviceRows.push(serviceRow(serviceId, service));
+    for (const attendee of Object.values(service.attendees || {})) {
+      if (isUuid(attendee && attendee.uid)) attendeeRows.push(attendeeRow(serviceId, attendee));
+    }
+  }
+  if (serviceRows.length) await upsertRows(REST_TABLES.SERVICES, serviceRows, 'service_id');
+  if (attendeeRows.length) await upsertRows(REST_TABLES.ATTENDEES, attendeeRows, 'service_id,user_id');
+}
+
+async function replaceStats(stats) {
+  await deleteRows(REST_TABLES.STATS, 'user_id=not.is.null');
+  const rows = Object.entries(stats || {})
+    .filter(([uid]) => isUuid(uid))
+    .map(([uid, value]) => statsRow(uid, value));
+  if (rows.length) await upsertRows(REST_TABLES.STATS, rows, 'user_id');
+}
+
+async function replaceChat(chat) {
+  await deleteRows(REST_TABLES.CHAT, 'message_id=not.is.null');
+  const rows = Object.entries(chat || {}).map(([messageId, message]) => chatRow(messageId, message));
+  if (rows.length) await upsertRows(REST_TABLES.CHAT, rows, 'message_id');
 }
 
 async function saveRootState(root) {
-  await supabaseFetch('/rest/v1/app_state?on_conflict=id', {
-    method: 'POST',
-    service: true,
-    headers: {
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal'
-    },
-    body: JSON.stringify({ id: ROOT_ID, data: root || defaultRootState() })
-  });
+  const state = root || defaultRootState();
+  const users = Object.entries(state.users || {})
+    .filter(([uid]) => isUuid(uid))
+    .map(([uid, profile]) => userRow(uid, profile));
+  if (users.length) await upsertRows(REST_TABLES.USERS, users, 'user_id');
+  await replaceStats(state.stats || {});
+  await replaceServices(state.services || {});
+  await replaceChat(state.chat || {});
+}
+
+async function upsertService(serviceId, service, replaceAttendees) {
+  await upsertRows(REST_TABLES.SERVICES, serviceRow(serviceId, service), 'service_id');
+  if (!replaceAttendees) return;
+  await deleteRows(REST_TABLES.ATTENDEES, eq('service_id', serviceId));
+  const rows = Object.values(service.attendees || {})
+    .filter(attendee => isUuid(attendee && attendee.uid))
+    .map(attendee => attendeeRow(serviceId, attendee));
+  if (rows.length) await upsertRows(REST_TABLES.ATTENDEES, rows, 'service_id,user_id');
+}
+
+async function updateServiceField(serviceId, field, value) {
+  const map = {
+    title: 'title',
+    description: 'description',
+    startMs: 'start_at',
+    deadlineDays: 'deadline_days',
+    minSlots: 'min_slots',
+    color: 'color',
+    replacement: 'replacement_needed',
+    statsApplied: 'stats_applied',
+    createdBy: 'created_by',
+    createdAt: 'created_at'
+  };
+  const column = map[field];
+  if (!column) return;
+  let dbValue = value;
+  if (field === 'startMs' || field === 'createdAt') dbValue = msToIso(value);
+  if (field === 'replacement' || field === 'statsApplied') dbValue = !!value;
+  if (field === 'createdBy') dbValue = isUuid(value) ? value : null;
+  await patchRows(REST_TABLES.SERVICES, eq('service_id', serviceId), { [column]: dbValue });
+}
+
+async function writeDataPath(path, value) {
+  const p = parts(path);
+  if (!p.length) return saveRootState(value || defaultRootState());
+  const [root, id, field, childId] = p;
+  if (root === 'users') {
+    if (!id || !isUuid(id)) return;
+    if (p.length === 2) {
+      if (value === null) return deleteRows(REST_TABLES.USERS, eq('user_id', id));
+      return upsertRows(REST_TABLES.USERS, userRow(id, value || {}), 'user_id');
+    }
+    const map = { username: 'username', email: 'email', displayName: 'display_name', role: 'role_id', mustChangePassword: 'must_change_password', createdAt: 'created_at' };
+    const column = map[field];
+    if (!column) return;
+    const patch = { [column]: field === 'createdAt' ? msToIso(value) : value };
+    if (field === 'mustChangePassword') patch[column] = !!value;
+    await patchRows(REST_TABLES.USERS, eq('user_id', id), patch);
+    return;
+  }
+  if (root === 'publicProfiles') {
+    if (!id || !isUuid(id)) return;
+    if (p.length === 2 && value) {
+      await patchRows(REST_TABLES.USERS, eq('user_id', id), {
+        username: value.username,
+        display_name: value.displayName || value.username
+      });
+    } else if (p.length === 3 && ['username', 'displayName'].includes(field)) {
+      await patchRows(REST_TABLES.USERS, eq('user_id', id), {
+        [field === 'displayName' ? 'display_name' : 'username']: value
+      });
+    }
+    return;
+  }
+  if (root === 'services') {
+    if (!id) return replaceServices(value || {});
+    if (p.length === 2) {
+      if (value === null) return deleteRows(REST_TABLES.SERVICES, eq('service_id', id));
+      return upsertService(id, value || {}, true);
+    }
+    if (field === 'attendees') {
+      if (!childId) {
+        await deleteRows(REST_TABLES.ATTENDEES, eq('service_id', id));
+        const rows = Object.values(value || {})
+          .filter(attendee => isUuid(attendee && attendee.uid))
+          .map(attendee => attendeeRow(id, attendee));
+        if (rows.length) await upsertRows(REST_TABLES.ATTENDEES, rows, 'service_id,user_id');
+        return;
+      }
+      if (value === null) return deleteRows(REST_TABLES.ATTENDEES, eq('service_id', id) + '&' + eq('user_id', childId));
+      if (isUuid(childId)) return upsertRows(REST_TABLES.ATTENDEES, attendeeRow(id, Object.assign({}, value, { uid: childId })), 'service_id,user_id');
+      return;
+    }
+    return updateServiceField(id, field, value);
+  }
+  if (root === 'stats') {
+    if (!id || !isUuid(id)) return replaceStats(value || {});
+    if (p.length === 2) return upsertRows(REST_TABLES.STATS, statsRow(id, value || {}), 'user_id');
+    const map = { attended: 'attended', cancelled: 'cancelled', lateCancelled: 'late_cancelled' };
+    if (!map[field]) return;
+    const state = await getRootState();
+    const current = Object.assign({ attended: 0, cancelled: 0, lateCancelled: 0 }, state.stats[id] || {});
+    current[field] = Math.max(0, Number(value) || 0);
+    await upsertRows(REST_TABLES.STATS, statsRow(id, current), 'user_id');
+    return;
+  }
+  if (root === 'chat') {
+    if (!id) return replaceChat(value || {});
+    if (value === null) return deleteRows(REST_TABLES.CHAT, eq('message_id', id));
+    return upsertRows(REST_TABLES.CHAT, chatRow(id, value || {}), 'message_id');
+  }
 }
 
 function roleFor(root, uid) {
@@ -329,5 +680,6 @@ module.exports = {
   sendError,
   sendJson,
   supabaseFetch,
-  validateProvider
+  validateProvider,
+  writeDataPath
 };
