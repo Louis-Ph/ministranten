@@ -34,3 +34,7 @@ on public.app_state
 for all
 using (false)
 with check (false);
+
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.app_state to service_role;
+grant execute on function public.touch_app_state_updated_at() to service_role;

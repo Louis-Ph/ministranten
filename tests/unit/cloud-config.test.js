@@ -52,5 +52,7 @@ describe('cloud project configuration', () => {
     expect(schemaSql).toContain('alter table public.app_state enable row level security');
     expect(schemaSql).toContain('using (false)');
     expect(schemaSql).toContain('with check (false)');
+    expect(schemaSql).toContain('grant select, insert, update, delete on table public.app_state to service_role');
+    expect(schemaSql).not.toMatch(/grant\s+select.*\bto\s+anon\b/i);
   });
 });

@@ -171,6 +171,13 @@ async function supabaseFetch(path, options) {
         'schema_not_installed'
       );
     }
+    if (data && data.code === '42501') {
+      throw new HttpError(
+        503,
+        'Permissions Supabase insuffisantes pour service_role. Reexecute supabase/schema.sql afin d appliquer les GRANT serveur.',
+        'db_permission_denied'
+      );
+    }
     const message = data && data.message ? data.message : 'Supabase request failed.';
     throw new HttpError(res.status, message, data && data.code ? data.code : 'supabase_error');
   }

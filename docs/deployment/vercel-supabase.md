@@ -37,7 +37,9 @@ a Vercel server-side environment variable.
 1. Create a Supabase project in an EU region when possible.
 2. Run `supabase/schema.sql` in the Supabase SQL editor. It uses
    `create table if not exists` and an idempotent insert, so it is safe to run
-   again during deployment hardening.
+   again during deployment hardening. It also grants table access only to the
+   server-side `service_role`; direct browser keys remain blocked by RLS/no
+   client grant.
 3. Enable Auth providers: Google, GitHub and Azure (Microsoft).
 4. Add OAuth redirect URLs:
    - `https://<project-ref>.supabase.co/auth/v1/callback` in each provider console.
@@ -130,3 +132,5 @@ Expected healthy response:
 If the table exists but the `main` row is missing, the API creates that root row
 automatically on first healthcheck/data access. If the table itself is missing,
 the response uses `schema_not_installed`; run `supabase/schema.sql` once.
+If the response uses `db_permission_denied`, run `supabase/schema.sql` again so
+the `service_role` GRANT statements are applied.
