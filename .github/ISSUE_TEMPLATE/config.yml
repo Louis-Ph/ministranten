@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Sicherheitslücke melden
+    url: https://github.com/CHANGEME/ministranten/security/advisories/new
+    about: Bitte melde Sicherheitslücken nicht öffentlich. Siehe SECURITY.md.
+  - name: Allgemeine Fragen
+    url: https://github.com/CHANGEME/ministranten/discussions
+    about: Für Fragen und Diskussionen bitte die GitHub Discussions nutzen.

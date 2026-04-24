@@ -1,0 +1,45 @@
+{
+  "name": "minis-wettstetten",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Progressive Web App für die Ministrantinnen und Ministranten der Pfarrei Wettstetten. Monolithische Single-File-Architektur mit Vanilla JavaScript und Firebase Compat v9.",
+  "keywords": [
+    "pwa",
+    "vanilla-js",
+    "firebase",
+    "ministranten",
+    "dienstplan",
+    "wcag",
+    "accessibility",
+    "single-file"
+  ],
+  "author": "Minis Wettstetten",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CHANGEME/ministranten.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CHANGEME/ministranten/issues"
+  },
+  "homepage": "https://github.com/CHANGEME/ministranten#readme",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "http-server -p 8080 -c-1 -s .",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "happy-dom": "^15.0.0",
+    "http-server": "^14.1.1",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,1909 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#0066cc" />
+<meta name="color-scheme" content="light" />
+<meta name="description" content="Minis Wettstetten – Dienstplan, Chat und Verwaltung für Ministranten der Pfarrei Wettstetten." />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com https://*.firebasedatabase.app https://*.googleapis.com wss://*.firebaseio.com; worker-src 'self' blob:; manifest-src 'self' blob: data:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none';" />
+<title>Minis Wettstetten</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQDiNJoEvZKt2KA7JQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<style>
+/* ===================================================================
+   Minis Wettstetten – Monolithic Stylesheet
+   Normen-Orientierung: WCAG 2.2 AA / EN 301 549, ISO 9241-110/-171,
+   DSGVO-konforme Darstellung, druckfähige Ansichten (A4).
+   =================================================================== */
+
+:root {
+  --c-bg: #f2f5f8;
+  --c-card: #ffffff;
+  --c-primary: #0066cc;
+  --c-primary-ink: #ffffff;
+  --c-danger: #e63946;
+  --c-danger-ink: #ffffff;
+  --c-success: #00cc88;
+  --c-success-ink: #0b2e22;
+  --c-text: #1d3557;
+  --c-text-muted: #5a6b85;
+  --c-border: #e3e9f0;
+  --c-overlay: rgba(29, 53, 87, 0.55);
+  --c-focus: #ffbe0b;
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  --shadow-sm: 0 1px 2px rgba(29, 53, 87, 0.08);
+  --shadow-md: 0 4px 14px rgba(29, 53, 87, 0.10);
+  --shadow-lg: 0 10px 30px rgba(29, 53, 87, 0.18);
+  --shadow-xl: 0 20px 60px rgba(29, 53, 87, 0.25);
+
+  --z-app: 1;
+  --z-bottom-nav: 50;
+  --z-toast: 9000;
+  --z-modal: 9500;
+  --z-forced-modal: 9999;
+
+  --header-h: 64px;
+  --nav-h: 72px;
+
+  --motion-fast: 140ms;
+  --motion-med: 240ms;
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100vh;
+  min-height: 100svh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+a { color: var(--c-primary); }
+a:hover { text-decoration: underline; }
+
+/* Skip link for keyboard / screenreader users (EN 301 549) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  padding: 10px 16px;
+  background: var(--c-text);
+  color: #fff;
+  border-radius: var(--r-sm);
+  z-index: var(--z-forced-modal);
+  transition: top var(--motion-fast) ease;
+}
+.skip-link:focus { top: 12px; }
+
+/* === App shell === */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  height: var(--header-h);
+  background: var(--c-card);
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 20;
+}
+.app-header .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.app-header .brand .logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0066cc, #3a86ff);
+  display: grid;
+  place-items: center;
+  color: #fff;
+}
+
+.main-content {
+  flex: 1;
+  padding: 16px 16px calc(var(--nav-h) + 24px);
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 960px) {
+  #app { padding-left: 260px; }
+  .bottom-nav { left: 0; right: auto; top: 0; bottom: 0; width: 240px; height: 100vh; flex-direction: column; border-top: none; border-right: 1px solid var(--c-border); padding: 80px 14px 14px; justify-content: flex-start; align-items: stretch; gap: 6px; }
+  .bottom-nav .nav-btn { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 12px 14px; font-size: 15px; border-radius: 12px; }
+  .bottom-nav .nav-btn i { font-size: 18px; }
+  .bottom-nav .nav-btn span { font-size: 15px; }
+  .app-header { position: fixed; top: 0; left: 0; right: 0; }
+  .main-content { padding-top: calc(var(--header-h) + 16px); padding-bottom: 24px; max-width: 1120px; margin-left: 260px; margin-right: auto; }
+}
+
+/* === Login / Welcome === */
+
+.login-wrapper {
+  min-height: calc(100vh - var(--header-h));
+  min-height: calc(100svh - var(--header-h));
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #0066cc 0%, #3a86ff 45%, #1d3557 120%);
+  padding: 24px 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--c-card);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-xl);
+  padding: 28px 22px 22px;
+  text-align: center;
+}
+.login-card .logo-lg {
+  width: 72px;
+  height: 72px;
+  margin: 4px auto 12px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #0066cc, #3a86ff);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 28px;
+  box-shadow: var(--shadow-md);
+}
+.login-card h1 { margin: 4px 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+.login-card p.sub { color: var(--c-text-muted); margin: 0 0 20px; }
+
+.login-actions { display: flex; flex-direction: column; gap: 10px; }
+
+.dev-slot { margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--c-border); }
+
+/* === Buttons === */
+
+.btn {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  padding: 12px 18px;
+  min-height: 44px; /* WCAG 2.2 Target Size AA */
+  min-width: 44px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  text-decoration: none;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.btn-primary { background: var(--c-primary); color: var(--c-primary-ink); box-shadow: var(--shadow-sm); }
+.btn-primary:hover:not(:disabled) { background: #0058b4; box-shadow: var(--shadow-md); }
+
+.btn-danger { background: var(--c-danger); color: var(--c-danger-ink); box-shadow: var(--shadow-sm); }
+.btn-danger:hover:not(:disabled) { background: #c62f3b; box-shadow: var(--shadow-md); }
+
+.btn-success { background: var(--c-success); color: var(--c-success-ink); box-shadow: var(--shadow-sm); }
+.btn-success:hover:not(:disabled) { background: #00b377; box-shadow: var(--shadow-md); }
+
+.btn-ghost { background: transparent; color: var(--c-text); border-color: var(--c-border); }
+.btn-ghost:hover:not(:disabled) { background: #f5f8fb; }
+
+.btn-subtle { background: #eef2f7; color: var(--c-text); }
+.btn-subtle:hover:not(:disabled) { background: #e2e9f2; }
+
+.btn-block { width: 100%; }
+
+/* === Inputs === */
+
+.field { text-align: left; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 13px; font-weight: 600; color: var(--c-text); }
+.field .hint { font-size: 12px; color: var(--c-text-muted); }
+
+.input, .textarea, .select {
+  font: inherit;
+  color: var(--c-text);
+  background: #fff;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  min-height: 44px;
+  width: 100%;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+}
+.input:focus, .textarea:focus, .select:focus {
+  border-color: var(--c-primary);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(0,102,204,0.18);
+}
+.textarea { resize: vertical; min-height: 96px; }
+
+.checkbox-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.checkbox-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--c-primary); }
+
+/* === Cards === */
+
+.card {
+  background: var(--c-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+  margin-bottom: 14px;
+  border: 1px solid var(--c-border);
+}
+
+.service-card {
+  background: var(--c-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  border: 1px solid var(--c-border);
+  border-left: 6px solid var(--c-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.service-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.service-card.replacement { animation: blink-red 1.4s ease-in-out infinite; border-left-color: var(--c-danger); }
+
+@keyframes blink-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.00); }
+  50%      { box-shadow: 0 0 0 6px rgba(230, 57, 70, 0.18); }
+}
+
+.service-card .row-1 { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.service-card h3 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+.service-card .meta { color: var(--c-text-muted); font-size: 13px; }
+.service-card .desc { color: var(--c-text); font-size: 14px; white-space: pre-wrap; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: var(--c-text);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 2px 4px 2px 0;
+}
+.pill.you { background: #d7ecff; color: #0058b4; }
+.pill.slots { background: #eef9f3; color: #0a7a54; }
+.pill.low { background: #fde7e9; color: #a11624; }
+
+.badge-replacement {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fde7e9;
+  color: #a11624;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* === Toast === */
+
+#toast-container {
+  position: fixed;
+  left: 0; right: 0; bottom: calc(var(--nav-h) + 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  pointer-events: none;
+  z-index: var(--z-toast);
+}
+.toast {
+  pointer-events: auto;
+  max-width: 560px;
+  width: 100%;
+  background: var(--c-text);
+  color: #fff;
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: toast-in var(--motion-med) ease-out;
+  border-left: 4px solid #fff;
+}
+.toast.info    { background: var(--c-primary); border-left-color: #cfe3ff; }
+.toast.success { background: var(--c-success); color: var(--c-success-ink); border-left-color: #0a7a54; }
+.toast.warn    { background: #ffb703; color: #3a2c00; border-left-color: #b07700; }
+.toast.error   { background: var(--c-danger); border-left-color: #7a0c16; }
+
+@keyframes toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* === Modal === */
+
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: var(--c-overlay);
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: fade-in var(--motion-fast) ease-out;
+}
+.modal-backdrop.forced { z-index: var(--z-forced-modal); background: rgba(29, 53, 87, 0.78); }
+.modal {
+  background: var(--c-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xl);
+  max-width: 560px;
+  width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 22px;
+  animation: modal-in var(--motion-med) ease-out;
+}
+.modal h2 { margin: 0 0 4px; font-size: 20px; }
+.modal .modal-sub { color: var(--c-text-muted); margin: 0 0 16px; font-size: 14px; }
+.modal .modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in { from { transform: translateY(20px) scale(0.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+
+/* === Bottom Navigation === */
+
+.bottom-nav {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: var(--nav-h);
+  background: var(--c-card);
+  border-top: 1px solid var(--c-border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-bottom-nav);
+  box-shadow: 0 -2px 12px rgba(29,53,87,0.05);
+}
+.nav-btn {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--c-text-muted);
+  min-width: 52px;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 6px 8px;
+  flex: 1 1 0;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.nav-btn i { font-size: 20px; }
+.nav-btn.active { color: var(--c-primary); background: #eaf3ff; }
+.nav-btn:hover:not(.active) { color: var(--c-text); }
+
+/* === Chat === */
+
+.chat-wrap { display: flex; flex-direction: column; gap: 10px; }
+.chat-list {
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+}
+.chat-msg {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #f5f8fb;
+  border: 1px solid transparent;
+  max-width: 90%;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+.chat-msg.mine  { background: #d7ecff; align-self: flex-end; }
+.chat-msg.system{ background: #fff; border: 2px solid var(--c-danger); color: var(--c-text); align-self: stretch; }
+.chat-msg .author { font-weight: 700; font-size: 12px; }
+.chat-msg .time { font-size: 11px; color: var(--c-text-muted); }
+.chat-msg .body { white-space: pre-wrap; }
+
+.chat-form { display: flex; gap: 8px; }
+.chat-form .input { flex: 1; }
+
+/* === Stats / Leaderboard === */
+
+.leaderboard { display: flex; flex-direction: column; gap: 6px; }
+.lb-row {
+  display: grid; grid-template-columns: 40px 1fr auto auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--c-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+.lb-row .rank { font-weight: 800; font-size: 18px; color: var(--c-primary); }
+.lb-row .name { font-weight: 600; }
+.lb-row .stat { font-variant-numeric: tabular-nums; font-size: 14px; }
+.lb-row .stat b { display: block; font-size: 16px; color: var(--c-text); }
+.lb-row .stat small { color: var(--c-text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* === Utility === */
+
+.row-flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.text-muted { color: var(--c-text-muted); }
+.text-danger { color: var(--c-danger); }
+.text-success { color: var(--c-success); }
+.text-center { text-align: center; }
+.mt-0 { margin-top: 0; } .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; }
+.mb-0 { margin-bottom: 0; } .mb-8 { margin-bottom: 8px; } .mb-16 { margin-bottom: 16px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+.divider { border: none; border-top: 1px solid var(--c-border); margin: 14px 0; }
+
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 10px; }
+.section-title h2 { font-size: 18px; margin: 0; }
+
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--c-text-muted);
+}
+.empty-state i { font-size: 38px; margin-bottom: 8px; display: block; color: #a5b2c6; }
+
+/* === Reduced motion (ISO 9241-171 / WCAG 2.3) === */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* === High-contrast fallback === */
+@media (prefers-contrast: more) {
+  :root {
+    --c-text: #000;
+    --c-text-muted: #1d3557;
+    --c-border: #1d3557;
+  }
+  .btn { border: 1px solid currentColor; }
+}
+
+/* === Print styles (DIN A4, Schwarz/Weiß-freundlich) === */
+@media print {
+  :root { --c-bg: #fff; --c-card: #fff; --c-border: #000; --c-text: #000; --c-text-muted: #222; }
+  @page { size: A4; margin: 16mm; }
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .app-header, .bottom-nav, .chat-form, .modal-backdrop, #toast-container, .no-print, button, .btn, .nav-btn { display: none !important; }
+  #app { padding: 0 !important; display: block; min-height: auto; }
+  .main-content { padding: 0; margin: 0; max-width: none; }
+  .card, .service-card, .lb-row, .chat-msg {
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+    border-radius: 4px !important;
+    page-break-inside: avoid;
+    margin-bottom: 6mm;
+  }
+  .service-card { border-left: 4px solid #000 !important; }
+  h1, h2, h3 { page-break-after: avoid; }
+  .print-only { display: block !important; }
+  .chat-list { max-height: none; overflow: visible; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: 9pt; color: #333; }
+}
+.print-only { display: none; }
+
+/* Focus trap helper (prevents external focus when forced modal is open) */
+body.forced-modal-open > *:not(.modal-backdrop.forced) { filter: blur(2px); pointer-events: none; }
+body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: auto; }
+</style>
+</head>
+<body>
+
+<a class="skip-link" href="#app">Zum Inhalt springen</a>
+
+<!-- Live region for toast announcements (WCAG 4.1.3) -->
+<div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
+
+<div id="app" role="application" aria-label="Minis Wettstetten Anwendung"></div>
+
+<div id="modal-root" aria-live="polite"></div>
+
+<!-- Firebase Compat v9 (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js" crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js" crossorigin="anonymous"></script>
+
+<script>
+/* ===================================================================
+   Minis Wettstetten – Monolithic Vanilla JS
+   Architektur: Finite State Machine mit Proxy-Reaktivität, semantische Silos,
+   XSS-sichere DOM-Konstruktion (kein innerHTML bei Nutzerdaten),
+   Service Worker via Blob URL, Toast-Manager statt alert().
+   =================================================================== */
+
+(function () {
+  'use strict';
+
+  // -----------------------------------------------------------------
+  // 0. Test / Mock detection
+  // -----------------------------------------------------------------
+  const urlParams = new URLSearchParams(location.search);
+  const MOCK_MODE = urlParams.get('mock') === '1';
+  const MAIL_DOMAIN = '@minis-wettstetten.de';
+  const DEV_MASTERKEY = 'miniswettapp';
+  const CHAT_LIMIT = 40;
+  const SYSTEM_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
+
+  // -----------------------------------------------------------------
+  // 1. Firebase Initialization
+  // -----------------------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBn4jWkZMOKNyxRw2zUISY8xG4CvMEvyVY",
+    authDomain: "miniswettapp.firebaseapp.com",
+    projectId: "miniswettapp",
+    databaseURL: "https://miniswettapp-default-rtdb.europe-west1.firebasedatabase.app/",
+    storageBucket: "miniswettapp.firebasestorage.app",
+    messagingSenderId: "418982681815",
+    appId: "1:418982681815:web:2fa96d0bc47d5b3df16492"
+  };
+
+  let db, auth, messaging;
+
+  if (MOCK_MODE) {
+    ({ db, auth, messaging } = createFirebaseMock());
+  } else if (typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    auth = firebase.auth();
+    try { messaging = firebase.messaging(); } catch (e) { messaging = null; }
+  } else {
+    console.error('Firebase SDK failed to load.');
+  }
+
+  // -----------------------------------------------------------------
+  // 2. Service Worker (Blob URL) – Network-first caching + push handler
+  // -----------------------------------------------------------------
+  const swCode = `
+    const CACHE = 'minis-wettstetten-v1';
+    const PRECACHE = ['/', location.href];
+
+    self.addEventListener('install', (e) => {
+      self.skipWaiting();
+      e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE).catch(() => {})));
+    });
+    self.addEventListener('activate', (e) => {
+      e.waitUntil(Promise.all([
+        caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
+        self.clients.claim()
+      ]));
+    });
+    self.addEventListener('fetch', (e) => {
+      const req = e.request;
+      if (req.method !== 'GET') return;
+      if (/firebaseio|googleapis|firebasedatabase|gstatic/.test(req.url)) return; // Let Firebase handle its own traffic
+      e.respondWith((async () => {
+        try {
+          const fresh = await fetch(req);
+          try { const c = await caches.open(CACHE); c.put(req, fresh.clone()); } catch (_) {}
+          return fresh;
+        } catch (_) {
+          const cached = await caches.match(req);
+          if (cached) return cached;
+          if (req.mode === 'navigate') {
+            const fallback = await caches.match('/');
+            if (fallback) return fallback;
+          }
+          return new Response('Offline', { status: 503, statusText: 'Offline' });
+        }
+      })());
+    });
+    self.addEventListener('push', (e) => {
+      let data = { title: 'Minis Wettstetten', body: 'Neue Nachricht.' };
+      try { if (e.data) data = Object.assign(data, e.data.json()); } catch (_) {}
+      e.waitUntil(self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: data.icon,
+        badge: data.badge,
+        tag: data.tag || 'minis',
+        data: data.data || {}
+      }));
+    });
+    self.addEventListener('notificationclick', (e) => {
+      e.notification.close();
+      e.waitUntil(self.clients.matchAll({ type: 'window' }).then(list => {
+        for (const c of list) if ('focus' in c) return c.focus();
+        if (self.clients.openWindow) return self.clients.openWindow('/');
+      }));
+    });
+  `;
+
+  function registerServiceWorker() {
+    if (MOCK_MODE) return;
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const blob = new Blob([swCode], { type: 'text/javascript' });
+      const url = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(url).catch(err => console.warn('SW registration failed', err));
+    } catch (e) { console.warn('SW blob failed', e); }
+  }
+
+  // -----------------------------------------------------------------
+  // 3. XSS-safe DOM helpers
+  // -----------------------------------------------------------------
+  function h(tag, attrs, children) {
+    const el = document.createElement(tag);
+    if (attrs && typeof attrs === 'object' && !Array.isArray(attrs) && !(attrs instanceof Node)) {
+      for (const k in attrs) {
+        if (!Object.prototype.hasOwnProperty.call(attrs, k)) continue;
+        const v = attrs[k];
+        if (v === false || v == null) continue;
+        if (k === 'class' || k === 'className') el.className = String(v);
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else if (k === 'dataset' && typeof v === 'object') Object.assign(el.dataset, v);
+        else if (k === 'text') el.textContent = String(v); // NEVER innerHTML for user data
+        else if (k.slice(0, 2) === 'on' && typeof v === 'function') {
+          el.addEventListener(k.slice(2).toLowerCase(), v);
+        } else if (k === 'html') {
+          // Explicit opt-in (never used with user data)
+          el.innerHTML = String(v);
+        } else if (v === true) {
+          el.setAttribute(k, '');
+        } else {
+          el.setAttribute(k, String(v));
+        }
+      }
+    } else if (attrs != null) {
+      // Treat second arg as children shortcut
+      children = attrs;
+    }
+    appendChildren(el, children);
+    return el;
+  }
+  function appendChildren(el, children) {
+    if (children == null || children === false) return;
+    if (Array.isArray(children)) {
+      for (const c of children) appendChildren(el, c);
+    } else if (children instanceof Node) {
+      el.appendChild(children);
+    } else {
+      el.appendChild(document.createTextNode(String(children)));
+    }
+  }
+  function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); }
+  function icon(name, { label } = {}) {
+    const i = h('i', { class: 'fa-solid fa-' + name, 'aria-hidden': label ? 'false' : 'true' });
+    if (label) i.setAttribute('aria-label', label);
+    return i;
+  }
+
+  // -----------------------------------------------------------------
+  // 4. Toast system (replaces alert)
+  // -----------------------------------------------------------------
+  const toastContainer = () => document.getElementById('toast-container');
+  function toast(message, kind) {
+    kind = kind || 'info';
+    const c = toastContainer();
+    if (!c) return;
+    const t = h('div', { class: 'toast ' + kind, role: kind === 'error' ? 'alert' : 'status', 'aria-live': kind === 'error' ? 'assertive' : 'polite' }, [
+      icon(kind === 'error' ? 'triangle-exclamation' : kind === 'success' ? 'check' : kind === 'warn' ? 'circle-info' : 'info'),
+      h('div', { style: { flex: 1 }, text: message })
+    ]);
+    c.appendChild(t);
+    setTimeout(() => {
+      t.style.transition = 'opacity 240ms ease';
+      t.style.opacity = '0';
+      setTimeout(() => t.remove(), 260);
+    }, kind === 'error' ? 6500 : 4200);
+  }
+
+  // -----------------------------------------------------------------
+  // 5. Date / business utilities (pure, testable)
+  // -----------------------------------------------------------------
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function daysBetween(aMs, bMs) { return (bMs - aMs) / DAY_MS; }
+  function addDays(ms, n) { return ms + n * DAY_MS; }
+  function isPast(ms, now) { return ms < (now == null ? Date.now() : now); }
+  function formatDateTime(ms) {
+    try { return new Date(ms).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (_) { return new Date(ms).toISOString(); }
+  }
+  function localDateTimeInputValue(ms) {
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function parseDateTimeLocal(str) {
+    if (!str) return NaN;
+    const d = new Date(str);
+    return d.getTime();
+  }
+  /**
+   * Liefert true, wenn die Austragung VERSPÄTET wäre (innerhalb der Frist).
+   * deadlineDays: Anzahl Tage vor Termin, ab denen Frist gilt.
+   */
+  function isLateCancellation(serviceStartMs, deadlineDays, now) {
+    const n = now == null ? Date.now() : now;
+    const diffDays = daysBetween(n, serviceStartMs);
+    return diffDays < deadlineDays;
+  }
+  function generateWeeklySeries(startMs, count) {
+    count = Math.max(1, Math.min(52, count | 0));
+    const out = [];
+    for (let i = 0; i < count; i++) out.push(addDays(startMs, 7 * i));
+    return out;
+  }
+  function sanitizePlainText(s) {
+    // Belt-and-braces; actual XSS protection is done via textContent everywhere.
+    if (s == null) return '';
+    return String(s).replace(/[\x00-\x1F\x7F\x80-\x9F]/g, '').slice(0, 8000);
+  }
+  function usernameToEmail(u) {
+    return String(u || '').trim().toLowerCase() + MAIL_DOMAIN;
+  }
+  function validUsername(u) { return /^[a-z0-9._-]{2,40}$/.test(String(u || '').trim().toLowerCase()); }
+  function validPassword(p) { return typeof p === 'string' && p.length >= 8; }
+
+  // -----------------------------------------------------------------
+  // 6. Global state (Proxy reactivity)
+  // -----------------------------------------------------------------
+  const VIEWS = {
+    LOGIN: 'LOGIN',
+    DEV_LOGIN: 'DEV_LOGIN',
+    HOME: 'HOME',
+    CHAT: 'CHAT',
+    PROFILE: 'PROFILE',
+    STATS: 'STATS',
+    ADMIN: 'ADMIN',
+    DEV: 'DEV'
+  };
+  const ROLES = { USER: 'user', ADMIN: 'admin', DEV: 'dev' };
+
+  const listeners = Object.create(null);
+  function on(event, fn) { (listeners[event] = listeners[event] || []).push(fn); }
+  function emit(event, data) {
+    const ls = listeners[event] || [];
+    for (const fn of ls) { try { fn(data); } catch (e) { console.error(e); } }
+  }
+
+  const state = new Proxy({
+    view: VIEWS.LOGIN,
+    user: null,           // {uid, email, username, role, displayName, mustChangePassword}
+    services: [],
+    users: {},
+    chatMessages: [],
+    stats: {},
+    lastSystemAlertTs: 0,
+    devOverride: false,
+    online: navigator.onLine,
+    booted: false,
+  }, {
+    set(t, p, v) {
+      const old = t[p];
+      t[p] = v;
+      if (old !== v) emit('state:' + p, { old: old, new: v });
+      emit('state', { key: p, old: old, new: v });
+      return true;
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // 7. Modal system with focus trap (ARIA-dialog)
+  // -----------------------------------------------------------------
+  let openModals = []; // stack of { el, opts, prevFocus }
+  function openModal(opts) {
+    // opts: { title, subtitle, content(Node|Node[]), actions(Node[]), forced, dismissible, onClose }
+    const prevFocus = document.activeElement;
+    const backdrop = h('div', {
+      class: 'modal-backdrop' + (opts.forced ? ' forced' : ''),
+      role: 'presentation'
+    });
+    const dialog = h('div', {
+      class: 'modal',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-labelledby': 'modal-title-' + Date.now(),
+      tabindex: '-1'
+    });
+    const titleId = dialog.getAttribute('aria-labelledby');
+    if (opts.title) dialog.appendChild(h('h2', { id: titleId, text: opts.title }));
+    if (opts.subtitle) dialog.appendChild(h('p', { class: 'modal-sub', text: opts.subtitle }));
+    if (opts.content) appendChildren(dialog, opts.content);
+    if (opts.actions && opts.actions.length) {
+      dialog.appendChild(h('div', { class: 'modal-actions' }, opts.actions));
+    }
+    backdrop.appendChild(dialog);
+    document.getElementById('modal-root').appendChild(backdrop);
+    if (opts.forced) document.body.classList.add('forced-modal-open');
+    const rec = { el: backdrop, opts, prevFocus };
+    openModals.push(rec);
+
+    function close(result) {
+      if (opts.forced && rec.forcedLocked) return;
+      backdrop.removeEventListener('keydown', onKeyDown);
+      backdrop.removeEventListener('click', onBackdropClick);
+      backdrop.remove();
+      openModals = openModals.filter(r => r !== rec);
+      if (!openModals.some(r => r.opts.forced)) document.body.classList.remove('forced-modal-open');
+      try { prevFocus && prevFocus.focus && prevFocus.focus(); } catch (_) {}
+      if (typeof opts.onClose === 'function') try { opts.onClose(result); } catch (_) {}
+    }
+    function focusables() {
+      return Array.from(dialog.querySelectorAll(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (!opts.forced && opts.dismissible !== false) { e.preventDefault(); close(); }
+        return;
+      }
+      if (e.key === 'Tab') {
+        const list = focusables();
+        if (!list.length) { e.preventDefault(); dialog.focus(); return; }
+        const first = list[0], last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    function onBackdropClick(e) {
+      if (e.target === backdrop && !opts.forced && opts.dismissible !== false) close();
+    }
+    backdrop.addEventListener('keydown', onKeyDown);
+    backdrop.addEventListener('click', onBackdropClick);
+
+    setTimeout(() => {
+      const list = focusables();
+      (list[0] || dialog).focus();
+    }, 0);
+
+    rec.close = close;
+    return rec;
+  }
+  function confirmDialog({ title, message, confirmText, cancelText, danger }) {
+    return new Promise(resolve => {
+      let decided = false;
+      const confirmBtn = h('button', { class: 'btn ' + (danger ? 'btn-danger' : 'btn-primary'), text: confirmText || 'Bestätigen',
+        onclick: () => { decided = true; rec.close(true); resolve(true); } });
+      const cancelBtn = h('button', { class: 'btn btn-ghost', text: cancelText || 'Abbrechen',
+        onclick: () => { decided = true; rec.close(false); resolve(false); } });
+      const rec = openModal({
+        title,
+        content: h('p', { text: message }),
+        actions: [cancelBtn, confirmBtn],
+        onClose: () => { if (!decided) resolve(false); }
+      });
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // 8. Authentication + roles
+  // -----------------------------------------------------------------
+  async function loginWithUsername(username, password) {
+    if (!validUsername(username)) throw new Error('Ungültiger Benutzername.');
+    if (!validPassword(password)) throw new Error('Passwort muss mindestens 8 Zeichen haben.');
+    const email = usernameToEmail(username);
+    const cred = await auth.signInWithEmailAndPassword(email, password);
+    return cred.user;
+  }
+  async function logout() {
+    try { if (state.devOverride) { state.devOverride = false; state.user = null; state.view = VIEWS.LOGIN; return; } }
+    catch (_) {}
+    try { await auth.signOut(); } catch (_) {}
+    state.user = null;
+    state.view = VIEWS.LOGIN;
+  }
+  function enterDevMode(masterkey) {
+    if (masterkey !== DEV_MASTERKEY) { toast('Falscher Entwickler-Schlüssel.', 'error'); return false; }
+    state.devOverride = true;
+    state.user = { uid: '__dev__', username: 'dev', email: 'dev' + MAIL_DOMAIN, displayName: 'Entwickler', role: ROLES.DEV, mustChangePassword: false };
+    state.view = VIEWS.HOME;
+    try { bootstrapSubscriptions(); } catch (e) { console.warn(e); }
+    toast('Entwickler-Modus aktiviert (lokal).', 'success');
+    return true;
+  }
+
+  async function loadUserProfile(fbUser) {
+    const uid = fbUser.uid;
+    const snap = await db.ref('users/' + uid).once('value');
+    let profile = snap.val() || {};
+    if (!profile.username) {
+      const inferred = (fbUser.email || '').split('@')[0];
+      profile.username = inferred || uid;
+      await db.ref('users/' + uid + '/username').set(profile.username);
+    }
+    if (!profile.role) {
+      profile.role = ROLES.USER;
+      await db.ref('users/' + uid + '/role').set(ROLES.USER);
+    }
+    return {
+      uid,
+      email: fbUser.email,
+      username: profile.username,
+      displayName: profile.displayName || profile.username,
+      role: profile.role,
+      mustChangePassword: !!profile.mustChangePassword
+    };
+  }
+
+  async function onAuthChanged(fbUser) {
+    if (!fbUser) {
+      state.user = null;
+      if (!state.devOverride) state.view = VIEWS.LOGIN;
+      return;
+    }
+    try {
+      const profile = await loadUserProfile(fbUser);
+      state.user = profile;
+      state.view = VIEWS.HOME;
+      if (profile.mustChangePassword) showForcedPasswordModal();
+      bootstrapSubscriptions();
+      initMessaging().catch(() => {});
+    } catch (e) {
+      console.error(e);
+      toast('Profil konnte nicht geladen werden: ' + e.message, 'error');
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // 9. Forced password change
+  // -----------------------------------------------------------------
+  function showForcedPasswordModal() {
+    const pw1 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Neues Passwort', minlength: '8', required: true });
+    const pw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Passwort bestätigen', minlength: '8', required: true });
+    const msg = h('p', { class: 'text-muted', text: 'Aus Sicherheitsgründen muss dein Passwort jetzt geändert werden. Wähle ein neues Passwort mit mindestens 8 Zeichen.' });
+    const btn = h('button', { class: 'btn btn-primary', text: 'Passwort setzen' });
+    const rec = openModal({
+      title: 'Passwort ändern (Pflicht)',
+      content: [
+        msg,
+        h('div', { class: 'field' }, [h('label', { text: 'Neues Passwort' }), pw1]),
+        h('div', { class: 'field' }, [h('label', { text: 'Bestätigung' }), pw2])
+      ],
+      actions: [btn],
+      forced: true,
+      dismissible: false
+    });
+    rec.forcedLocked = true;
+    btn.addEventListener('click', async () => {
+      if (pw1.value !== pw2.value) return toast('Passwörter stimmen nicht überein.', 'error');
+      if (!validPassword(pw1.value)) return toast('Mindestens 8 Zeichen.', 'error');
+      btn.disabled = true;
+      try {
+        await auth.currentUser.updatePassword(pw1.value);
+        await db.ref('users/' + auth.currentUser.uid + '/mustChangePassword').set(false);
+        rec.forcedLocked = false;
+        rec.close();
+        state.user = Object.assign({}, state.user, { mustChangePassword: false });
+        toast('Passwort aktualisiert.', 'success');
+      } catch (e) {
+        btn.disabled = false;
+        toast('Fehler: ' + e.message, 'error');
+      }
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // 10. Services / Planner
+  // -----------------------------------------------------------------
+  async function createService(data, { repeatWeekly12 } = {}) {
+    requireRole(ROLES.ADMIN);
+    const base = {
+      title: sanitizePlainText(data.title).slice(0, 120),
+      description: sanitizePlainText(data.description || '').slice(0, 1200),
+      deadlineDays: Math.max(0, Math.min(30, Number(data.deadlineDays) || 0)),
+      minSlots: Math.max(1, Math.min(50, Number(data.minSlots) || 1)),
+      color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : '#0066cc',
+      createdBy: state.user.uid,
+      createdAt: Date.now(),
+      replacement: false,
+      attendees: {}
+    };
+    const series = repeatWeekly12 ? generateWeeklySeries(data.startMs, 12) : [data.startMs];
+    const writes = series.map(ms => {
+      const ref = db.ref('services').push();
+      return ref.set(Object.assign({}, base, { startMs: ms, id: ref.key }));
+    });
+    await Promise.all(writes);
+    toast(repeatWeekly12 ? '12 Termine erstellt.' : 'Dienst erstellt.', 'success');
+  }
+  async function updateService(id, patch) {
+    requireRole(ROLES.ADMIN);
+    await db.ref('services/' + id).update(patch);
+  }
+  async function deleteService(id) {
+    requireRole(ROLES.ADMIN);
+    await db.ref('services/' + id).remove();
+  }
+
+  async function signUp(serviceId) {
+    const u = state.user;
+    if (!u) return;
+    await db.ref('services/' + serviceId + '/attendees/' + u.uid).set({
+      uid: u.uid, username: u.username, displayName: u.displayName || u.username, ts: Date.now()
+    });
+    toast('Eingetragen.', 'success');
+  }
+
+  async function signOff(serviceId) {
+    const u = state.user;
+    if (!u) return;
+    const service = state.services.find(s => s.id === serviceId);
+    if (!service) return;
+    const late = isLateCancellation(service.startMs, service.deadlineDays || 0);
+    if (late) {
+      const ok = await confirmDialog({
+        title: 'Frist unterschritten',
+        message: 'Die Abmeldefrist ist abgelaufen. Es wird eine Ersatzsuche gestartet. Trotzdem austragen?',
+        confirmText: 'Trotzdem austragen',
+        cancelText: 'Eingetragen bleiben',
+        danger: true
+      });
+      if (!ok) return;
+      const writes = [
+        db.ref('services/' + serviceId + '/attendees/' + u.uid).remove(),
+        db.ref('services/' + serviceId + '/replacement').set(true),
+        incrementStat(u.uid, 'lateCancelled')
+      ];
+      await Promise.all(writes);
+      const svcLabel = service.title + ' am ' + formatDateTime(service.startMs);
+      await postSystemMessage('SYSTEM: ' + (u.displayName || u.username) + ' hat sich kurzfristig abgemeldet. Ersatz gesucht für: ' + svcLabel + '!');
+      toast('Austragung gespeichert – Ersatzsuche aktiviert.', 'warn');
+    } else {
+      const writes = [
+        db.ref('services/' + serviceId + '/attendees/' + u.uid).remove(),
+        incrementStat(u.uid, 'cancelled')
+      ];
+      await Promise.all(writes);
+      toast('Ausgetragen.', 'success');
+    }
+  }
+
+  function requireRole(minRole) {
+    const u = state.user;
+    const order = { user: 1, admin: 2, dev: 3 };
+    if (!u || (order[u.role] || 0) < (order[minRole] || 0)) {
+      throw new Error('Keine Berechtigung.');
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // 11. Statistics engine
+  // -----------------------------------------------------------------
+  async function incrementStat(uid, key) {
+    const ref = db.ref('stats/' + uid + '/' + key);
+    try {
+      await ref.transaction(v => (v || 0) + 1);
+    } catch (e) {
+      const cur = (await ref.once('value')).val() || 0;
+      await ref.set(cur + 1);
+    }
+  }
+
+  async function recomputeAttendanceForPastServices() {
+    // One-pass: every past service increments attended for attendees that are still listed.
+    // Idempotence via marker /services/{id}/statsApplied = true
+    const now = Date.now();
+    const servicesSnap = await db.ref('services').once('value');
+    const services = servicesSnap.val() || {};
+    const jobs = [];
+    for (const id in services) {
+      const s = services[id];
+      if (!s || s.statsApplied) continue;
+      if (s.startMs < now) {
+        const atts = s.attendees || {};
+        for (const uid in atts) jobs.push(incrementStat(uid, 'attended'));
+        jobs.push(db.ref('services/' + id + '/statsApplied').set(true));
+      }
+    }
+    if (jobs.length) await Promise.all(jobs);
+  }
+
+  // -----------------------------------------------------------------
+  // 12. Chat
+  // -----------------------------------------------------------------
+  function subscribeChat() {
+    db.ref('chat').limitToLast(CHAT_LIMIT).on('value', snap => {
+      const val = snap.val() || {};
+      const list = Object.keys(val).map(k => Object.assign({ id: k }, val[k]));
+      list.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      state.chatMessages = list;
+      // System alert on load if there's a fresh system message (<2h)
+      const fresh = list.filter(m => m.system && (Date.now() - (m.ts || 0)) < SYSTEM_ALERT_WINDOW_MS);
+      if (fresh.length && state.lastSystemAlertTs < (fresh[fresh.length - 1].ts || 0)) {
+        state.lastSystemAlertTs = fresh[fresh.length - 1].ts || 0;
+        toast('Wichtig: Neue Systemmeldungen im Chat!', 'warn');
+      }
+    });
+  }
+
+  async function sendChat(text) {
+    text = sanitizePlainText(text).slice(0, 2000);
+    if (!text) return;
+    const u = state.user;
+    if (!u) throw new Error('Nicht angemeldet.');
+    await db.ref('chat').push({
+      uid: u.uid, username: u.username, displayName: u.displayName || u.username,
+      text, ts: Date.now(), system: false
+    });
+  }
+
+  async function postSystemMessage(text) {
+    await db.ref('chat').push({
+      uid: '__system__', username: 'SYSTEM', displayName: 'SYSTEM',
+      text: sanitizePlainText(text).slice(0, 2000),
+      ts: Date.now(),
+      system: true
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // 13. Firebase Cloud Messaging
+  // -----------------------------------------------------------------
+  async function initMessaging() {
+    if (!messaging || !('Notification' in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      const token = await messaging.getToken().catch(() => null);
+      if (token && state.user && state.user.uid) {
+        await db.ref('users/' + state.user.uid + '/fcmToken').set(token);
+      }
+      messaging.onMessage && messaging.onMessage(payload => {
+        const title = (payload && payload.notification && payload.notification.title) || 'Minis Wettstetten';
+        const body = (payload && payload.notification && payload.notification.body) || '';
+        toast(title + (body ? ' — ' + body : ''), 'info');
+      });
+    } catch (e) { /* silent */ }
+  }
+
+  // -----------------------------------------------------------------
+  // 14. Database Backup (Dev)
+  // -----------------------------------------------------------------
+  async function exportDatabase() {
+    requireRole(ROLES.DEV);
+    const snap = await db.ref('/').once('value');
+    const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: 'minis-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json' });
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
+    toast('Backup heruntergeladen.', 'success');
+  }
+  async function importDatabase(file) {
+    requireRole(ROLES.DEV);
+    const text = await file.text();
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch (_) { return toast('Ungültige JSON-Datei.', 'error'); }
+    const ok = await confirmDialog({
+      title: 'Datenbank überschreiben?',
+      message: 'Die gesamte Datenbank wird mit dem Inhalt der Datei überschrieben. Dies ist unwiderruflich. Fortfahren?',
+      confirmText: 'Überschreiben',
+      danger: true
+    });
+    if (!ok) return;
+    await db.ref('/').set(parsed);
+    toast('Datenbank wiederhergestellt.', 'success');
+  }
+
+  // -----------------------------------------------------------------
+  // 15. Views
+  // -----------------------------------------------------------------
+  function renderApp() {
+    const root = document.getElementById('app');
+    clear(root);
+    if (state.view === VIEWS.LOGIN || state.view === VIEWS.DEV_LOGIN) {
+      root.appendChild(renderLoginView());
+      return;
+    }
+    root.appendChild(renderHeader());
+    const main = h('main', { class: 'main-content', id: 'main-content', tabindex: '-1' });
+    root.appendChild(main);
+    const view = state.view;
+    if (view === VIEWS.HOME) main.appendChild(renderHomeView());
+    else if (view === VIEWS.CHAT) main.appendChild(renderChatView());
+    else if (view === VIEWS.PROFILE) main.appendChild(renderProfileView());
+    else if (view === VIEWS.STATS) main.appendChild(renderStatsView());
+    else if (view === VIEWS.ADMIN) main.appendChild(renderAdminView());
+    else if (view === VIEWS.DEV) main.appendChild(renderDevView());
+    root.appendChild(renderBottomNav());
+  }
+
+  function renderHeader() {
+    const user = state.user || {};
+    return h('header', { class: 'app-header', role: 'banner' }, [
+      h('div', { class: 'brand' }, [
+        h('div', { class: 'logo' }, [icon('church')]),
+        h('div', {}, [
+          h('div', { text: 'Minis Wettstetten' }),
+          h('small', { class: 'text-muted', text: user.displayName ? 'Angemeldet als ' + user.displayName : 'Ministranten-PWA' })
+        ])
+      ]),
+      h('div', { class: 'row-flex' }, [
+        h('button', {
+          class: 'btn btn-ghost no-print',
+          'aria-label': 'Seite drucken',
+          onclick: () => window.print()
+        }, [icon('print'), 'Drucken']),
+        h('button', {
+          class: 'btn btn-ghost no-print',
+          'aria-label': 'Abmelden',
+          onclick: logout
+        }, [icon('right-from-bracket'), 'Logout'])
+      ])
+    ]);
+  }
+
+  function renderBottomNav() {
+    const role = state.user && state.user.role;
+    const isAdmin = role === ROLES.ADMIN || role === ROLES.DEV;
+    const isDev = role === ROLES.DEV;
+    const nav = h('nav', { class: 'bottom-nav no-print', 'aria-label': 'Hauptnavigation' }, [
+      navBtn(VIEWS.HOME, 'house', 'Start'),
+      navBtn(VIEWS.CHAT, 'comments', 'Chat'),
+      navBtn(VIEWS.PROFILE, 'user', 'Profil'),
+      isAdmin && navBtn(VIEWS.STATS, 'chart-column', 'Statistik'),
+      isAdmin && navBtn(VIEWS.ADMIN, 'screwdriver-wrench', 'Admin'),
+      isDev && navBtn(VIEWS.DEV, 'flask', 'Dev'),
+    ]);
+    return nav;
+  }
+
+  function navBtn(targetView, iconName, label) {
+    return h('button', {
+      class: 'nav-btn' + (state.view === targetView ? ' active' : ''),
+      'aria-current': state.view === targetView ? 'page' : 'false',
+      'aria-label': label,
+      onclick: () => { state.view = targetView; }
+    }, [icon(iconName), h('span', { text: label })]);
+  }
+
+  function renderLoginView() {
+    const wrapper = h('div', { class: 'login-wrapper' });
+    const card = h('div', { class: 'login-card' });
+    card.appendChild(h('div', { class: 'logo-lg' }, [icon('church')]));
+    card.appendChild(h('h1', { text: 'Minis Wettstetten' }));
+    card.appendChild(h('p', { class: 'sub', text: 'Dienstplan, Chat & mehr – für unsere Ministrantinnen und Ministranten.' }));
+
+    if (state.view === VIEWS.DEV_LOGIN) {
+      const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Entwickler-Schlüssel', placeholder: 'Entwickler-Schlüssel' });
+      const submit = () => { if (enterDevMode(pw.value)) { /* view already changed */ } };
+      pw.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+      card.appendChild(h('div', { class: 'stack' }, [
+        h('div', { class: 'field' }, [h('label', { text: 'Entwickler-Schlüssel' }), pw]),
+        h('button', { class: 'btn btn-primary btn-block', onclick: submit }, ['Entsperren']),
+        h('button', { class: 'btn btn-ghost btn-block', onclick: () => { state.view = VIEWS.LOGIN; } }, [icon('arrow-left'), 'Zurück'])
+      ]));
+      wrapper.appendChild(card);
+      setTimeout(() => pw.focus(), 0);
+      return wrapper;
+    }
+
+    const username = h('input', { class: 'input', type: 'text', autocomplete: 'username', 'aria-label': 'Benutzername', placeholder: 'Benutzername' });
+    const password = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Passwort', placeholder: 'Passwort' });
+    async function submit() {
+      try {
+        await loginWithUsername(username.value, password.value);
+      } catch (e) {
+        toast(mapAuthError(e), 'error');
+      }
+    }
+    password.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+    card.appendChild(h('form', {
+      class: 'stack',
+      onsubmit: (e) => { e.preventDefault(); submit(); },
+      'aria-label': 'Login-Formular',
+      autocomplete: 'on'
+    }, [
+      h('div', { class: 'field' }, [h('label', { text: 'Benutzername' }), username]),
+      h('div', { class: 'field' }, [h('label', { text: 'Passwort' }), password]),
+      h('div', { class: 'login-actions' }, [
+        h('button', { class: 'btn btn-primary btn-block', type: 'submit' }, [icon('right-to-bracket'), 'Ministranten Login']),
+        h('button', {
+          class: 'btn btn-danger btn-block', type: 'button',
+          onclick: submit
+        }, [icon('shield-halved'), 'Oberminis Login'])
+      ]),
+      h('div', { class: 'dev-slot' }, [
+        h('button', {
+          class: 'btn btn-subtle btn-block', type: 'button',
+          onclick: () => { state.view = VIEWS.DEV_LOGIN; }
+        }, [icon('flask'), 'Entwickler Zugang'])
+      ])
+    ]));
+    wrapper.appendChild(card);
+    setTimeout(() => username.focus(), 0);
+    return wrapper;
+  }
+
+  function mapAuthError(e) {
+    const m = (e && (e.code || e.message)) || '';
+    if (/user-not-found/.test(m)) return 'Benutzer nicht gefunden.';
+    if (/wrong-password|invalid-login|invalid-credential/.test(m)) return 'Falsches Passwort.';
+    if (/too-many-requests/.test(m)) return 'Zu viele Versuche. Bitte später erneut.';
+    return 'Anmeldung fehlgeschlagen: ' + (e.message || m);
+  }
+
+  // ----- Home view -----
+  function renderHomeView() {
+    const container = h('section', { 'aria-labelledby': 'home-title' });
+    container.appendChild(h('div', { class: 'section-title' }, [
+      h('h2', { id: 'home-title', text: 'Kommende Gottesdienste' }),
+      h('span', { class: 'text-muted', text: state.services.filter(s => !isPast(s.startMs)).length + ' offen' })
+    ]));
+    const upcoming = state.services.filter(s => !isPast(s.startMs)).sort((a, b) => a.startMs - b.startMs);
+    if (!upcoming.length) {
+      container.appendChild(h('div', { class: 'empty-state' }, [
+        icon('calendar-xmark'),
+        h('p', { text: 'Aktuell sind keine Gottesdienste eingeplant.' })
+      ]));
+    } else {
+      for (const s of upcoming) container.appendChild(renderServiceCard(s));
+    }
+    return container;
+  }
+
+  function renderServiceCard(s) {
+    const u = state.user || {};
+    const attendees = s.attendees || {};
+    const count = Object.keys(attendees).length;
+    const isSignedUp = !!attendees[u.uid];
+    const low = count < (s.minSlots || 1);
+    const card = h('div', {
+      class: 'service-card' + (s.replacement ? ' replacement' : ''),
+      style: { borderLeftColor: s.color || '#0066cc' },
+      role: 'button',
+      tabindex: '0',
+      'aria-label': 'Gottesdienst ' + s.title + ' am ' + formatDateTime(s.startMs),
+      onclick: () => openServiceDetail(s),
+      onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openServiceDetail(s); } }
+    });
+    card.appendChild(h('div', { class: 'row-1' }, [
+      h('h3', { text: s.title }),
+      s.replacement ? h('span', { class: 'badge-replacement' }, [icon('triangle-exclamation'), 'Ersatz gesucht']) : null
+    ]));
+    card.appendChild(h('div', { class: 'meta' }, [
+      icon('clock'), ' ', formatDateTime(s.startMs),
+      '  •  ',
+      icon('people-group'), ' ',
+      h('span', { class: 'pill' + (low ? ' low' : ' slots'), text: count + ' / ' + (s.minSlots || 1) })
+    ]));
+    if (s.description) card.appendChild(h('div', { class: 'desc', text: s.description }));
+    const pills = h('div', { class: 'row-flex', 'aria-label': 'Eingetragene Ministranten' });
+    for (const uid in attendees) {
+      const a = attendees[uid];
+      pills.appendChild(h('span', { class: 'pill' + (uid === u.uid ? ' you' : ''), text: a.displayName || a.username || uid }));
+    }
+    if (!count) pills.appendChild(h('span', { class: 'text-muted', text: 'Noch niemand eingetragen.' }));
+    card.appendChild(pills);
+    const actions = h('div', { class: 'row-flex' }, [
+      isSignedUp
+        ? h('button', { class: 'btn btn-danger', onclick: (e) => { e.stopPropagation(); signOff(s.id).catch(err => toast(err.message, 'error')); } }, [icon('user-minus'), 'Austragen'])
+        : h('button', { class: 'btn btn-success', onclick: (e) => { e.stopPropagation(); signUp(s.id).catch(err => toast(err.message, 'error')); } }, [icon('user-plus'), 'Eintragen'])
+    ]);
+    card.appendChild(actions);
+    return card;
+  }
+
+  function openServiceDetail(s) {
+    const content = h('div', { class: 'stack' });
+    content.appendChild(h('p', { class: 'text-muted', text: formatDateTime(s.startMs) }));
+    if (s.description) content.appendChild(h('p', { text: s.description }));
+    const list = h('ul', { style: { paddingLeft: '18px' } });
+    const attendees = s.attendees || {};
+    for (const uid in attendees) {
+      list.appendChild(h('li', { text: attendees[uid].displayName || attendees[uid].username || uid }));
+    }
+    if (!Object.keys(attendees).length) list.appendChild(h('li', { text: 'Noch niemand eingetragen.' }));
+    content.appendChild(h('h3', { text: 'Eingetragen' }));
+    content.appendChild(list);
+    const role = state.user && state.user.role;
+    const isAdmin = role === ROLES.ADMIN || role === ROLES.DEV;
+    const actions = [];
+    if (isAdmin) {
+      actions.push(h('button', { class: 'btn btn-ghost', onclick: () => openEditServiceModal(s) }, [icon('pen'), 'Bearbeiten']));
+      actions.push(h('button', { class: 'btn btn-danger', onclick: async () => {
+        const ok = await confirmDialog({ title: 'Dienst löschen?', message: 'Wirklich löschen?', danger: true });
+        if (ok) { await deleteService(s.id); rec.close(); toast('Dienst gelöscht.', 'success'); }
+      } }, [icon('trash'), 'Löschen']));
+    }
+    actions.push(h('button', { class: 'btn btn-ghost', onclick: () => rec.close() }, ['Schließen']));
+    const rec = openModal({ title: s.title, content, actions });
+  }
+
+  // ----- Chat view -----
+  function renderChatView() {
+    const section = h('section', { 'aria-labelledby': 'chat-title' });
+    section.appendChild(h('div', { class: 'section-title' }, [
+      h('h2', { id: 'chat-title', text: 'Chat' }),
+      h('span', { class: 'text-muted', text: 'letzte ' + CHAT_LIMIT + ' Nachrichten' })
+    ]));
+    const list = h('div', { class: 'chat-list', id: 'chat-list', role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' });
+    for (const m of state.chatMessages) list.appendChild(renderChatMessage(m));
+    section.appendChild(list);
+    setTimeout(() => { list.scrollTop = list.scrollHeight; }, 0);
+
+    const input = h('input', { class: 'input', 'aria-label': 'Nachricht eingeben', placeholder: 'Nachricht…', maxlength: '2000' });
+    const btn = h('button', { class: 'btn btn-primary', 'aria-label': 'Senden' }, [icon('paper-plane'), 'Senden']);
+    const send = async () => {
+      const t = input.value; if (!t.trim()) return;
+      btn.disabled = true;
+      try { await sendChat(t); input.value = ''; }
+      catch (e) { toast(e.message, 'error'); }
+      finally { btn.disabled = false; input.focus(); }
+    };
+    btn.addEventListener('click', send);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+    section.appendChild(h('form', {
+      class: 'chat-form no-print',
+      onsubmit: (e) => { e.preventDefault(); send(); }
+    }, [input, btn]));
+    return section;
+  }
+
+  function renderChatMessage(m) {
+    const mine = state.user && state.user.uid === m.uid;
+    const cls = 'chat-msg' + (m.system ? ' system' : mine ? ' mine' : '');
+    return h('div', { class: cls }, [
+      h('div', { class: 'row-flex' }, [
+        h('span', { class: 'author', text: m.system ? 'SYSTEM' : (m.displayName || m.username || 'Unbekannt') }),
+        h('span', { class: 'time', text: ' · ' + formatDateTime(m.ts || Date.now()) })
+      ]),
+      h('div', { class: 'body', text: m.text || '' }) // textContent, XSS-safe
+    ]);
+  }
+
+  // ----- Profile view -----
+  function renderProfileView() {
+    const u = state.user || {};
+    const section = h('section', { 'aria-labelledby': 'profile-title' });
+    section.appendChild(h('div', { class: 'section-title' }, [h('h2', { id: 'profile-title', text: 'Mein Profil' })]));
+    section.appendChild(h('div', { class: 'card' }, [
+      h('p', {}, [h('b', { text: 'Benutzername: ' }), u.username || '—']),
+      h('p', {}, [h('b', { text: 'Name: ' }), u.displayName || '—']),
+      h('p', {}, [h('b', { text: 'Rolle: ' }), u.role || '—']),
+      h('p', {}, [h('b', { text: 'E-Mail: ' }), u.email || '—']),
+    ]));
+    const display = h('input', { class: 'input', value: u.displayName || '', 'aria-label': 'Anzeigename' });
+    section.appendChild(h('div', { class: 'card' }, [
+      h('h3', { class: 'mt-0', text: 'Anzeigename' }),
+      h('div', { class: 'field' }, [h('label', { text: 'So wirst du im Chat angezeigt' }), display]),
+      h('button', { class: 'btn btn-primary', onclick: async () => {
+        const v = sanitizePlainText(display.value).slice(0, 60);
+        if (!v) return toast('Name darf nicht leer sein.', 'error');
+        if (!auth.currentUser) return toast('Nur für echte Nutzer verfügbar.', 'warn');
+        await db.ref('users/' + u.uid + '/displayName').set(v);
+        state.user = Object.assign({}, u, { displayName: v });
+        toast('Anzeigename gespeichert.', 'success');
+      } }, ['Speichern'])
+    ]));
+    const newPw = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Neues Passwort' });
+    const newPw2 = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', 'aria-label': 'Passwort bestätigen' });
+    section.appendChild(h('div', { class: 'card' }, [
+      h('h3', { class: 'mt-0', text: 'Passwort ändern (freiwillig)' }),
+      h('div', { class: 'field' }, [h('label', { text: 'Neues Passwort' }), newPw]),
+      h('div', { class: 'field' }, [h('label', { text: 'Bestätigung' }), newPw2]),
+      h('button', { class: 'btn btn-primary', onclick: async () => {
+        if (!auth.currentUser) return toast('Nur für echte Nutzer verfügbar.', 'warn');
+        if (newPw.value !== newPw2.value) return toast('Passwörter stimmen nicht überein.', 'error');
+        if (!validPassword(newPw.value)) return toast('Mindestens 8 Zeichen.', 'error');
+        try { await auth.currentUser.updatePassword(newPw.value); toast('Passwort aktualisiert.', 'success'); newPw.value = newPw2.value = ''; }
+        catch (e) { toast(e.message, 'error'); }
+      } }, [icon('key'), 'Passwort ändern'])
+    ]));
+    return section;
+  }
+
+  // ----- Stats view -----
+  function renderStatsView() {
+    const section = h('section', { 'aria-labelledby': 'stats-title' });
+    section.appendChild(h('div', { class: 'section-title' }, [
+      h('h2', { id: 'stats-title', text: 'Statistik – Leaderboard' }),
+      h('button', { class: 'btn btn-ghost no-print', onclick: () => window.print(), 'aria-label': 'Leaderboard drucken' }, [icon('print'), 'Drucken'])
+    ]));
+    const users = state.users || {};
+    const stats = state.stats || {};
+    const entries = Object.keys(users).map(uid => ({
+      uid, name: users[uid].displayName || users[uid].username || uid,
+      attended: (stats[uid] && stats[uid].attended) || 0,
+      cancelled: (stats[uid] && stats[uid].cancelled) || 0,
+      lateCancelled: (stats[uid] && stats[uid].lateCancelled) || 0,
+    }));
+    entries.sort((a, b) => b.attended - a.attended);
+    const lb = h('div', { class: 'leaderboard' });
+    if (!entries.length) lb.appendChild(h('div', { class: 'empty-state' }, [icon('ranking-star'), 'Noch keine Daten.']));
+    entries.forEach((e, i) => {
+      lb.appendChild(h('div', { class: 'lb-row' }, [
+        h('div', { class: 'rank', text: '#' + (i + 1) }),
+        h('div', { class: 'name', text: e.name }),
+        h('div', { class: 'stat' }, [h('b', { text: String(e.attended) }), h('small', { text: 'Teilgenommen' })]),
+        h('div', { class: 'stat' }, [h('b', { text: String(e.cancelled) }), h('small', { text: 'Ausgetragen' })]),
+        h('div', { class: 'stat' }, [h('b', { text: String(e.lateCancelled) }), h('small', { text: 'Kurzfristig' })])
+      ]));
+    });
+    section.appendChild(lb);
+    return section;
+  }
+
+  // ----- Admin view -----
+  function renderAdminView() {
+    const section = h('section', { 'aria-labelledby': 'admin-title' });
+    section.appendChild(h('div', { class: 'section-title' }, [
+      h('h2', { id: 'admin-title', text: 'Admin' }),
+      h('button', { class: 'btn btn-primary', onclick: () => openEditServiceModal(null) }, [icon('plus'), 'Neuer Dienst'])
+    ]));
+    const list = h('div', { class: 'stack' });
+    const all = state.services.slice().sort((a, b) => a.startMs - b.startMs);
+    for (const s of all) {
+      const row = h('div', { class: 'card row-flex' }, [
+        h('div', { style: { flex: 1 } }, [
+          h('b', { text: s.title + '  ' }),
+          h('span', { class: 'text-muted', text: formatDateTime(s.startMs) + (s.replacement ? ' · ERSATZ' : '') })
+        ]),
+        h('button', { class: 'btn btn-ghost', onclick: () => openEditServiceModal(s) }, [icon('pen'), 'Bearbeiten']),
+        h('button', { class: 'btn btn-danger', onclick: async () => {
+          const ok = await confirmDialog({ title: 'Löschen?', message: 'Dienst wirklich löschen?', danger: true });
+          if (ok) await deleteService(s.id);
+        } }, [icon('trash'), 'Löschen'])
+      ]);
+      list.appendChild(row);
+    }
+    if (!all.length) list.appendChild(h('div', { class: 'empty-state' }, [icon('calendar-plus'), 'Noch keine Dienste.']));
+    section.appendChild(list);
+    return section;
+  }
+
+  function openEditServiceModal(existing) {
+    const title = h('input', { class: 'input', value: existing ? existing.title : '', 'aria-label': 'Titel', placeholder: 'z. B. Sonntagsmesse' });
+    const desc = h('textarea', { class: 'textarea', 'aria-label': 'Beschreibung', placeholder: 'Besonderheiten, Verhalten, etc.' }, [existing ? existing.description : '']);
+    const when = h('input', { class: 'input', type: 'datetime-local', 'aria-label': 'Datum & Uhrzeit', value: existing ? localDateTimeInputValue(existing.startMs) : localDateTimeInputValue(Date.now() + DAY_MS) });
+    const minSlots = h('input', { class: 'input', type: 'number', min: '1', max: '50', value: existing ? (existing.minSlots || 2) : 2, 'aria-label': 'Mindest-Teilnehmer' });
+    const deadline = h('input', { class: 'input', type: 'number', min: '0', max: '30', value: existing ? (existing.deadlineDays || 3) : 3, 'aria-label': 'Abmeldefrist in Tagen' });
+    const color = h('input', { type: 'color', class: 'input', value: existing ? (existing.color || '#0066cc') : '#0066cc', 'aria-label': 'Farbe', style: { padding: '6px', height: '44px' } });
+    const weekly = h('input', { type: 'checkbox', id: 'cb-weekly' });
+    const actions = [
+      h('button', { class: 'btn btn-ghost', onclick: () => rec.close() }, ['Abbrechen']),
+      h('button', { class: 'btn btn-primary', onclick: async () => {
+        const startMs = parseDateTimeLocal(when.value);
+        if (Number.isNaN(startMs)) return toast('Ungültiges Datum.', 'error');
+        const payload = {
+          title: title.value, description: desc.value, startMs,
+          minSlots: minSlots.value, deadlineDays: deadline.value, color: color.value
+        };
+        try {
+          if (existing) {
+            await updateService(existing.id, {
+              title: sanitizePlainText(payload.title).slice(0, 120),
+              description: sanitizePlainText(payload.description).slice(0, 1200),
+              startMs: payload.startMs,
+              minSlots: Math.max(1, Math.min(50, Number(payload.minSlots) || 1)),
+              deadlineDays: Math.max(0, Math.min(30, Number(payload.deadlineDays) || 0)),
+              color: /^#[0-9a-fA-F]{6}$/.test(payload.color) ? payload.color : '#0066cc'
+            });
+            toast('Dienst aktualisiert.', 'success');
+          } else {
+            await createService(payload, { repeatWeekly12: weekly.checked });
+          }
+          rec.close();
+        } catch (e) { toast(e.message, 'error'); }
+      } }, ['Speichern'])
+    ];
+    const content = h('div', { class: 'stack' }, [
+      h('div', { class: 'field' }, [h('label', { text: 'Titel' }), title]),
+      h('div', { class: 'field' }, [h('label', { text: 'Beschreibung' }), desc]),
+      h('div', { class: 'field' }, [h('label', { text: 'Termin' }), when]),
+      h('div', { class: 'row-flex' }, [
+        h('div', { class: 'field', style: { flex: 1 } }, [h('label', { text: 'Min. Teilnehmer' }), minSlots]),
+        h('div', { class: 'field', style: { flex: 1 } }, [h('label', { text: 'Abmeldefrist (Tage)' }), deadline]),
+        h('div', { class: 'field', style: { flex: 1 } }, [h('label', { text: 'Farbe' }), color])
+      ]),
+      existing ? null : h('div', { class: 'checkbox-row' }, [
+        weekly, h('label', { for: 'cb-weekly', text: 'Wöchentlich (3 Monate / 12 Termine)' })
+      ])
+    ]);
+    const rec = openModal({
+      title: existing ? 'Dienst bearbeiten' : 'Neuer Dienst',
+      content, actions
+    });
+  }
+
+  // ----- Dev view -----
+  function renderDevView() {
+    const section = h('section', { 'aria-labelledby': 'dev-title' });
+    section.appendChild(h('div', { class: 'section-title' }, [h('h2', { id: 'dev-title', text: 'Entwickler-Werkzeuge' })]));
+
+    section.appendChild(h('div', { class: 'card' }, [
+      h('h3', { class: 'mt-0', text: 'Backup' }),
+      h('p', { class: 'text-muted', text: 'Exportiert den kompletten Datenbank-Root als JSON-Datei.' }),
+      h('button', { class: 'btn btn-primary', onclick: () => exportDatabase().catch(e => toast(e.message, 'error')) }, [icon('download'), 'Export herunterladen'])
+    ]));
+
+    const fileInput = h('input', { type: 'file', accept: 'application/json', 'aria-label': 'Backup-Datei' });
+    section.appendChild(h('div', { class: 'card' }, [
+      h('h3', { class: 'mt-0', text: 'Wiederherstellung' }),
+      h('p', { class: 'text-muted', text: 'Überschreibt den gesamten DB-Root. Erfordert Bestätigung.' }),
+      fileInput,
+      h('button', { class: 'btn btn-danger mt-8', onclick: async () => {
+        const f = fileInput.files && fileInput.files[0];
+        if (!f) return toast('Bitte Datei wählen.', 'warn');
+        try { await importDatabase(f); } catch (e) { toast(e.message, 'error'); }
+      } }, [icon('upload'), 'Datenbank überschreiben'])
+    ]));
+
+    section.appendChild(h('div', { class: 'card' }, [
+      h('h3', { class: 'mt-0', text: 'Benutzer-Verwaltung' }),
+      renderUserList()
+    ]));
+
+    return section;
+  }
+
+  function renderUserList() {
+    const wrap = h('div', { class: 'stack' });
+    const users = state.users || {};
+    const keys = Object.keys(users);
+    if (!keys.length) { wrap.appendChild(h('p', { class: 'text-muted', text: 'Keine Benutzer vorhanden.' })); return wrap; }
+    for (const uid of keys) {
+      const u = users[uid] || {};
+      wrap.appendChild(h('div', { class: 'row-flex', style: { padding: '8px 0', borderBottom: '1px solid var(--c-border)' } }, [
+        h('div', { style: { flex: 1 } }, [
+          h('b', { text: u.displayName || u.username || uid }), ' ',
+          h('span', { class: 'text-muted', text: '(' + (u.role || 'user') + ')' }),
+          u.mustChangePassword ? h('span', { class: 'pill low', text: ' · PW-Zwang' }) : null
+        ]),
+        h('button', { class: 'btn btn-ghost', onclick: async () => {
+          await db.ref('users/' + uid + '/mustChangePassword').set(true);
+          toast('Passwort-Zwang aktiviert.', 'success');
+        } }, [icon('rotate'), 'PW-Reset']),
+        h('select', {
+          class: 'select', 'aria-label': 'Rolle ändern',
+          onchange: async (e) => {
+            await db.ref('users/' + uid + '/role').set(e.target.value);
+            toast('Rolle aktualisiert.', 'success');
+          }
+        }, [
+          h('option', { value: 'user', selected: (u.role || 'user') === 'user' }, ['User']),
+          h('option', { value: 'admin', selected: u.role === 'admin' }, ['Admin']),
+          h('option', { value: 'dev', selected: u.role === 'dev' }, ['Dev'])
+        ])
+      ]));
+    }
+    return wrap;
+  }
+
+  // -----------------------------------------------------------------
+  // 16. Subscriptions bootstrap
+  // -----------------------------------------------------------------
+  function bootstrapSubscriptions() {
+    db.ref('services').on('value', snap => {
+      const v = snap.val() || {};
+      state.services = Object.keys(v).map(k => Object.assign({ id: k }, v[k]));
+    });
+    db.ref('users').on('value', snap => { state.users = snap.val() || {}; });
+    db.ref('stats').on('value', snap => { state.stats = snap.val() || {}; });
+    subscribeChat();
+    recomputeAttendanceForPastServices().catch(err => console.warn('stats recompute', err));
+  }
+
+  // -----------------------------------------------------------------
+  // 17. Reactivity – re-render on any state change
+  // -----------------------------------------------------------------
+  on('state', (evt) => {
+    if (['view','user','services','chatMessages','stats','users'].indexOf(evt.key) !== -1) {
+      renderApp();
+    }
+  });
+
+  window.addEventListener('online',  () => toast('Online.', 'success'));
+  window.addEventListener('offline', () => toast('Offline-Modus.', 'warn'));
+
+  // -----------------------------------------------------------------
+  // 18. Manifest (inline via Blob URL)
+  // -----------------------------------------------------------------
+  (function injectManifest() {
+    try {
+      const iconSvg = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">' +
+        '<rect width="192" height="192" rx="38" fill="#0066cc"/>' +
+        '<text x="96" y="128" font-size="110" text-anchor="middle" font-family="Inter,Arial" fill="white" font-weight="800">M</text>' +
+        '</svg>'
+      );
+      const manifest = {
+        name: 'Minis Wettstetten',
+        short_name: 'Minis',
+        start_url: '.',
+        scope: '.',
+        display: 'standalone',
+        background_color: '#f2f5f8',
+        theme_color: '#0066cc',
+        lang: 'de',
+        dir: 'ltr',
+        icons: [
+          { src: iconSvg, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: iconSvg, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = url;
+      document.head.appendChild(link);
+    } catch (e) { /* silent */ }
+  })();
+
+  // -----------------------------------------------------------------
+  // 19. Boot
+  // -----------------------------------------------------------------
+  function boot() {
+    registerServiceWorker();
+    renderApp();
+    if (MOCK_MODE) {
+      // In mock mode, skip auth listeners unless caller sets one.
+      state.booted = true;
+      return;
+    }
+    if (auth && typeof auth.onAuthStateChanged === 'function') {
+      auth.onAuthStateChanged(onAuthChanged);
+    }
+    state.booted = true;
+  }
+
+  // -----------------------------------------------------------------
+  // 20. Firebase Mock (for local e2e/unit testing without network)
+  // -----------------------------------------------------------------
+  function createFirebaseMock() {
+    const store = { users: {}, services: {}, chat: {}, stats: {} };
+    const watchers = new Map();
+    function pathGet(p) { return p.split('/').filter(Boolean).reduce((o, k) => (o == null ? o : o[k]), store); }
+    function pathSet(p, v) {
+      const parts = p.split('/').filter(Boolean);
+      if (!parts.length) { Object.keys(store).forEach(k => delete store[k]); Object.assign(store, v || {}); return; }
+      let o = store;
+      for (let i = 0; i < parts.length - 1; i++) { if (o[parts[i]] == null || typeof o[parts[i]] !== 'object') o[parts[i]] = {}; o = o[parts[i]]; }
+      if (v === null) delete o[parts[parts.length - 1]];
+      else o[parts[parts.length - 1]] = v;
+    }
+    function notify(p) {
+      for (const [key, cbs] of watchers) {
+        if (p === key || p.indexOf(key + '/') === 0 || key.indexOf(p + '/') === 0 || key === '/') {
+          const val = pathGet(key);
+          cbs.forEach(cb => cb({ val: () => val }));
+        }
+      }
+    }
+    function ref(p) {
+      p = '/' + (p || '').replace(/^\/+|\/+$/g, '');
+      return {
+        key: p.split('/').pop() || null,
+        async once() { return { val: () => pathGet(p) }; },
+        async set(v) { pathSet(p, v); notify(p); },
+        async update(obj) { const cur = pathGet(p) || {}; pathSet(p, Object.assign({}, cur, obj)); notify(p); },
+        async remove() { pathSet(p, null); notify(p); },
+        push(value) {
+          const id = 'm' + Date.now() + Math.random().toString(36).slice(2, 6);
+          const childPath = p + '/' + id;
+          const child = ref(childPath);
+          child.key = id;
+          if (value !== undefined) { pathSet(childPath, value); notify(p); }
+          return child;
+        },
+        on(_evt, cb) { if (!watchers.has(p)) watchers.set(p, []); watchers.get(p).push(cb); cb({ val: () => pathGet(p) }); },
+        off() { watchers.delete(p); },
+        limitToLast() { return ref(p.slice(1)); },
+        async transaction(fn) { const cur = pathGet(p); const next = fn(cur); pathSet(p, next); notify(p); return { committed: true, snapshot: { val: () => next } }; }
+      };
+    }
+    const authState = { currentUser: null, listeners: [] };
+    const mockAuth = {
+      get currentUser() { return authState.currentUser; },
+      onAuthStateChanged(cb) { authState.listeners.push(cb); cb(authState.currentUser); return () => {}; },
+      async signInWithEmailAndPassword(email) {
+        const uid = 'mock-' + email.split('@')[0];
+        authState.currentUser = { uid, email, updatePassword: async () => {} };
+        pathSet('users/' + uid, Object.assign({ username: email.split('@')[0], role: 'user', mustChangePassword: false }, pathGet('users/' + uid) || {}));
+        authState.listeners.forEach(cb => cb(authState.currentUser));
+        return { user: authState.currentUser };
+      },
+      async signOut() { authState.currentUser = null; authState.listeners.forEach(cb => cb(null)); }
+    };
+    return {
+      db: { ref },
+      auth: mockAuth,
+      messaging: null
+    };
+  }
+
+  // -----------------------------------------------------------------
+  // 21. Expose pure helpers for unit/e2e tests
+  // -----------------------------------------------------------------
+  window.__MinisTest = Object.freeze({
+    VIEWS, ROLES,
+    DAY_MS,
+    daysBetween, addDays, isPast, formatDateTime, localDateTimeInputValue, parseDateTimeLocal,
+    isLateCancellation, generateWeeklySeries,
+    sanitizePlainText, usernameToEmail, validUsername, validPassword,
+    h, clear,
+    enterDevMode,
+    get state() { return state; },
+    mapAuthError
+  });
+
+  // -----------------------------------------------------------------
+  // Go.
+  // -----------------------------------------------------------------
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+})();
+</script>
+
+</body>
+</html>
