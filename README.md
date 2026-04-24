@@ -171,15 +171,28 @@ open "http://localhost:8080/index.html?mock=1"
 
 ### Firebase konfigurieren
 
-1. Firebase-Projekt anlegen und das Snippet in
-   [`index.html`](./index.html) (Abschnitt `firebaseConfig`) ersetzen.
+1. Firebase-Projekt `miniswettapp` verwenden. Das Web-Config-Snippet ist in
+   [`index.html`](./index.html) (Abschnitt `firebaseConfig`) bereits verdrahtet.
 2. **Realtime Database** → Region `europe-west1` auswählen.
-3. Regeln aus [`firebase.rules.json`](./firebase.rules.json) einspielen:
+3. Regeln aus [`firebase.rules.json`](./firebase.rules.json) einspielen. Die
+   Firebase-CLI liest Projekt und Rules-Datei aus [`.firebaserc`](./.firebaserc)
+   und [`firebase.json`](./firebase.json):
    ```bash
-   firebase deploy --only database
+   firebase deploy --only database --project miniswettapp
    ```
 4. **Authentication** → Anbieter `Email/Password` aktivieren.
 5. Optional: **Cloud Messaging** → Web-Push-Zertifikat (VAPID) anlegen.
+
+### GitHub Secrets
+
+- Für das Firebase-Web-Config-Snippet wird kein GitHub Secret benötigt: diese
+  Werte sind Client-Konfiguration, keine privaten Admin-Zugangsdaten.
+- Der GitHub-Pages-Workflow nutzt nur die Repository-Berechtigungen
+  `contents: read`, `pages: write` und `id-token: write`.
+- Firebase-Regeln werden bewusst nicht automatisch aus GitHub deployt, solange
+  kein dediziertes Firebase-Service-Account-Secret eingerichtet ist. Private
+  Service-Account-JSONs, Admin-SDK-Schlüssel oder Firebase-CI-Tokens gehören nie
+  in den Source Tree.
 
 ## Entwicklung & lokale Ausführung
 
@@ -196,8 +209,8 @@ open "http://localhost:8080/index.html?mock=1"
 
 | Schicht        | Werkzeug     | Anzahl | Schwerpunkt |
 |----------------|--------------|--------|-------------|
-| Unit           | Vitest + happy-dom | 30     | Datums- und Businesslogik, DOM-Builder, FSM-Übergänge, XSS-Sicherheit |
-| End-to-End     | Playwright   | 10 × 2 Projekte | Login, Dev-Masterkey, Navigation, Serie 12 Termine, Escape schließt Modal, Chat-XSS, Druckansicht (A4-PDF) |
+| Unit           | Vitest + happy-dom | 45     | Datums- und Businesslogik, DOM-Builder, Rollen, Firebase-Konfiguration, Rules-Regressionen |
+| End-to-End     | Playwright   | 25 × 2 Projekte | Login, Dev-Masterkey, Rollen-Sichtbarkeit, Benutzeranlage, Navigation, mobile/Desktop-Layout, Druckansicht |
 
 Die App exponiert für Tests reine Hilfsfunktionen unter
 `window.__MinisTest`. Der `?mock=1`-Query-Parameter ersetzt Firebase durch ein
@@ -217,7 +230,7 @@ In-Memory-Backend; damit laufen sämtliche E2E-Tests ohne Internetverbindung.
 ### Firebase-Regeln
 
 ```bash
-firebase deploy --only database
+firebase deploy --only database --project miniswettapp
 ```
 
 ## Sicherheit

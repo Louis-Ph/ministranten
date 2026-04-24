@@ -7,18 +7,36 @@
       ".indexOn": ["username", "role"],
       "$uid": {
         ".read": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
-        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists() && newData.child('role').val() == 'user'))",
         "role": {
-          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() == 'dev'",
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists() && newData.val() == 'user'))",
           ".validate": "newData.isString() && (newData.val() == 'user' || newData.val() == 'admin' || newData.val() == 'dev')"
         },
         "mustChangePassword": {
           ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev' || root.child('users').child(auth.uid).child('role').val() == 'admin')",
           ".validate": "newData.isBoolean()"
         },
-        "displayName": { ".validate": "newData.isString() && newData.val().length <= 60" },
-        "username":    { ".validate": "newData.isString() && newData.val().length <= 40" },
-        "fcmToken":    { ".validate": "newData.isString() && newData.val().length <= 4096" }
+        "displayName": {
+          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".validate": "newData.isString() && newData.val().length <= 60"
+        },
+        "username": {
+          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "email": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists()))",
+          ".validate": "newData.isString() && newData.val().length <= 120"
+        },
+        "createdAt": {
+          ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'dev' || (auth.uid == $uid && !data.exists()))",
+          ".validate": "newData.isNumber()"
+        },
+        "fcmToken": {
+          ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+          ".validate": "newData.isString() && newData.val().length <= 4096"
+        },
+        "$other":      { ".validate": false }
       }
     },
 
@@ -36,15 +54,21 @@
         "color":        { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)" },
         "replacement":  { ".validate": "newData.isBoolean()" },
         "statsApplied": { ".validate": "newData.isBoolean()" },
+        "id":           { ".validate": "newData.isString()" },
+        "createdBy":    { ".validate": "newData.isString()" },
+        "createdAt":    { ".validate": "newData.isNumber()" },
         "attendees": {
           "$uid": {
             ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
+            ".validate": "newData.hasChildren(['uid', 'username', 'displayName', 'ts'])",
             "uid":         { ".validate": "newData.isString()" },
             "username":    { ".validate": "newData.isString() && newData.val().length <= 40" },
             "displayName": { ".validate": "newData.isString() && newData.val().length <= 60" },
-            "ts":          { ".validate": "newData.isNumber()" }
+            "ts":          { ".validate": "newData.isNumber()" },
+            "$other":      { ".validate": false }
           }
-        }
+        },
+        "$other":       { ".validate": false }
       }
     },
 
@@ -52,24 +76,27 @@
       ".read": "auth != null",
       ".indexOn": ["ts"],
       "$mid": {
-        ".write": "auth != null && !data.exists() && newData.child('uid').val() == auth.uid && newData.child('system').val() != true",
+        ".write": "auth != null && !data.exists() && ((newData.child('system').val() == false && newData.child('uid').val() == auth.uid) || (newData.child('system').val() == true && newData.child('uid').val() == '__system__' && newData.child('triggeredBy').val() == auth.uid && (root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')))",
         ".validate": "newData.hasChildren(['uid', 'text', 'ts'])",
-        "uid":         { ".validate": "newData.isString() && newData.val() == auth.uid" },
+        "uid":         { ".validate": "newData.isString() && (newData.val() == auth.uid || newData.val() == '__system__')" },
         "username":    { ".validate": "newData.isString() && newData.val().length <= 40" },
         "displayName": { ".validate": "newData.isString() && newData.val().length <= 60" },
         "text":        { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 2000" },
         "ts":          { ".validate": "newData.isNumber()" },
-        "system":      { ".validate": "newData.isBoolean() && newData.val() == false" }
+        "system":      { ".validate": "newData.isBoolean()" },
+        "triggeredBy": { ".validate": "newData.isString() && newData.val() == auth.uid" },
+        "$other":      { ".validate": false }
       }
     },
 
     "stats": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null",
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'admin' || root.child('users').child(auth.uid).child('role').val() == 'dev')",
         "attended":      { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "cancelled":     { ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "lateCancelled": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+        "lateCancelled": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "$other":        { ".validate": false }
       }
     }
   }

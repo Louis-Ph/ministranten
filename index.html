@@ -1493,11 +1493,27 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   async function postSystemMessage(text) {
+    const u = state.user;
+    const safeText = sanitizePlainText(text).slice(0, 2000);
+    if (!safeText) return;
+    try {
+      await db.ref('chat').push({
+        uid: '__system__', username: 'SYSTEM', displayName: 'SYSTEM',
+        text: safeText,
+        ts: Date.now(),
+        system: true,
+        triggeredBy: u && u.uid ? u.uid : null
+      });
+      return;
+    } catch (err) {
+      if (!u) throw err;
+      console.warn('system chat message rejected, posting user-visible fallback', err);
+    }
     await db.ref('chat').push({
-      uid: '__system__', username: 'SYSTEM', displayName: 'SYSTEM',
-      text: sanitizePlainText(text).slice(0, 2000),
+      uid: u.uid, username: u.username, displayName: u.displayName || u.username,
+      text: safeText,
       ts: Date.now(),
-      system: true
+      system: false
     });
   }
 
