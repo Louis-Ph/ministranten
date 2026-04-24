@@ -43,11 +43,45 @@ a Vercel server-side environment variable.
    it is safe to run again during deployment hardening. It also grants table
    access only to the server-side `service_role`; direct browser keys remain
    blocked by RLS/no client grant.
-3. Enable Auth providers: Google, GitHub and Azure (Microsoft).
-4. Add OAuth redirect URLs:
-   - `https://<project-ref>.supabase.co/auth/v1/callback` in each provider console.
-   - `https://<your-vercel-domain>/index.html?backend=cloud` in Supabase Auth URL configuration.
-5. Create the first dev user from Supabase Auth, then add a matching profile in
+3. **Enable Auth providers in Supabase** — Dashboard → Authentication →
+   Providers. Turn **ON** each provider listed in `APP_OAUTH_PROVIDERS` and
+   paste the OAuth client id and secret from the provider console:
+   - Google → client id + secret from Google Cloud Console → APIs & Services
+     → Credentials → OAuth 2.0 Client ID (Web application).
+   - GitHub → client id + secret from GitHub Settings → Developer settings →
+     OAuth Apps → New OAuth App.
+   - Azure (Microsoft) → application (client) id + client secret from the
+     Azure AD App registration. Set the tenant to `common` if you want
+     personal accounts to sign in.
+
+   If the OAuth login buttons redirect to Supabase and the response body is
+   `{"error_code":"validation_failed","msg":"Unsupported provider: provider is not enabled"}`,
+   the provider is **off in Supabase** regardless of `APP_OAUTH_PROVIDERS`.
+   The login screen now also prints a yellow banner listing providers that are
+   enabled in Vercel but off in Supabase.
+
+4. **Set URL Configuration in Supabase** — Dashboard → Authentication →
+   URL Configuration:
+   - Site URL = `https://<your-vercel-domain>`
+   - Redirect URLs (allow-list) = add **both** of:
+     - `https://<your-vercel-domain>/?backend=cloud`
+     - `https://<your-vercel-domain>/**` (wildcard for previews and fragments)
+
+   Supabase rejects the OAuth `redirect_to` silently if it is not covered by
+   this allow-list; the user lands back on Supabase's default error page
+   instead of the app.
+
+5. **Add the provider-side callback URL**. In each provider console
+   (Google / GitHub / Azure), set the authorized redirect URI to:
+   `https://<project-ref>.supabase.co/auth/v1/callback`
+   That URL is fixed by Supabase; the app does not see it.
+
+6. The app now uses the OAuth 2.0 **PKCE flow** by default
+   (`code_challenge` + `/api/auth/callback` exchange). It still falls back to
+   the legacy implicit flow if Supabase returns tokens in the URL fragment, so
+   no Supabase-side flow-type toggle is required.
+
+7. Create the first dev user from Supabase Auth, then add a matching profile in
    `public.app_users`.
 
 ## Normalized Tables

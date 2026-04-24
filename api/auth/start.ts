@@ -23,10 +23,23 @@ module.exports = async function handler(req, res) {
       res.statusCode = 400;
       return res.end('Invalid OAuth state.');
     }
+    // PKCE: RFC 7636 code_challenge (base64url of SHA-256(code_verifier)).
+    // 43..128 chars, URL-safe alphabet. If absent we skip PKCE and Supabase
+    // will use the implicit grant.
+    const codeChallenge = String(req.query.code_challenge || '');
+    if (codeChallenge && !/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {
+      res.statusCode = 400;
+      return res.end('Invalid code_challenge.');
+    }
     const authorizeUrl = new URL(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/authorize');
     authorizeUrl.searchParams.set('provider', provider);
     if (redirectTo) authorizeUrl.searchParams.set('redirect_to', redirectTo);
     if (state) authorizeUrl.searchParams.set('state', state);
+    if (codeChallenge) {
+      authorizeUrl.searchParams.set('code_challenge', codeChallenge);
+      authorizeUrl.searchParams.set('code_challenge_method', 'S256');
+      authorizeUrl.searchParams.set('flow_type', 'pkce');
+    }
     res.statusCode = 302;
     res.setHeader('Location', authorizeUrl.toString());
     return res.end();

@@ -818,6 +818,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   let db, auth, createUserOnBackend;
   const CLOUD_SESSION_KEY = 'minis.cloud.session';
   const CLOUD_OAUTH_STATE_KEY = 'minis.cloud.oauth.state';
+  const CLOUD_OAUTH_VERIFIER_KEY = 'minis.cloud.oauth.verifier';
+  const CLOUD_OAUTH_PROVIDER_KEY = 'minis.cloud.oauth.provider';
   const FREE_CLOUD_OAUTH_PROVIDER_IDS = Object.freeze(['google', 'github', 'azure']);
   const CLOUD_OAUTH_PROVIDERS = Object.freeze([
     { id: 'google', label: 'Google', icon: 'google' },
@@ -842,26 +844,6 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
   function clearCloudSession() {
     try { sessionStorage.removeItem(CLOUD_SESSION_KEY); } catch (_) {}
-  }
-  function captureCloudSessionFromHash() {
-    if (!location.hash || location.hash.indexOf('access_token=') === -1) return null;
-    const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-    const returnedState = params.get('state');
-    const expectedState = sessionStorage.getItem(CLOUD_OAUTH_STATE_KEY);
-    if (expectedState && returnedState !== expectedState) {
-      clearCloudSession();
-      try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
-      throw new Error('OAuth-State ungültig.');
-    }
-    try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
-    const session = saveCloudSession({
-      access_token: params.get('access_token'),
-      refresh_token: params.get('refresh_token'),
-      expires_in: Number(params.get('expires_in') || 3600),
-      token_type: params.get('token_type') || 'bearer'
-    });
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
-    return session;
   }
   function cloudAuthHeaders(extra) {
     const headers = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
@@ -906,14 +888,138 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     crypto.getRandomValues(bytes);
     return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
   }
-  function startOAuth(provider) {
+  // RFC 7636 code_verifier: 43..128 chars of [A-Za-z0-9_-~.].
+  // We use 64 base64url-of-random-bytes chars.
+  function randomCodeVerifier() {
+    const bytes = new Uint8Array(48);
+    crypto.getRandomValues(bytes);
+    return base64urlFromBytes(bytes);
+  }
+  function base64urlFromBytes(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  async function pkceChallengeFromVerifier(verifier) {
+    const data = new TextEncoder().encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64urlFromBytes(new Uint8Array(digest));
+  }
+  // Handles both implicit flow (#access_token=…) and PKCE (?code=…&state=…)
+  // returns from Supabase. Also surfaces provider/Supabase errors cleanly.
+  async function captureCloudSessionFromCallback() {
+    // 1. Did Supabase bounce us back with an error?
+    if (location.search && location.search.indexOf('error') !== -1) {
+      const qs = new URLSearchParams(location.search);
+      const error = qs.get('error') || qs.get('error_code');
+      const desc = qs.get('error_description');
+      if (error) {
+        const pretty = desc ? decodeURIComponent(desc).replace(/\+/g, ' ') : error;
+        try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+        try { sessionStorage.removeItem(CLOUD_OAUTH_VERIFIER_KEY); } catch (_) {}
+        try { sessionStorage.removeItem(CLOUD_OAUTH_PROVIDER_KEY); } catch (_) {}
+        try {
+          history.replaceState(null, '',
+            location.pathname + stripOAuthQuery(location.search));
+        } catch (_) {}
+        throw new Error('OAuth-Fehler: ' + pretty);
+      }
+    }
+    // 2. Implicit flow: tokens in URL fragment (#access_token=…).
+    if (location.hash && location.hash.indexOf('access_token=') !== -1) {
+      const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+      const returnedState = params.get('state');
+      const expectedState = sessionStorage.getItem(CLOUD_OAUTH_STATE_KEY);
+      if (expectedState && returnedState !== expectedState) {
+        clearCloudSession();
+        try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+        try { sessionStorage.removeItem(CLOUD_OAUTH_VERIFIER_KEY); } catch (_) {}
+        throw new Error('OAuth-State ungültig.');
+      }
+      try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(CLOUD_OAUTH_VERIFIER_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(CLOUD_OAUTH_PROVIDER_KEY); } catch (_) {}
+      const session = saveCloudSession({
+        access_token: params.get('access_token'),
+        refresh_token: params.get('refresh_token'),
+        expires_in: Number(params.get('expires_in') || 3600),
+        token_type: params.get('token_type') || 'bearer'
+      });
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+      return session;
+    }
+    // 3. PKCE flow: authorization code in query string.
+    if (location.search && location.search.indexOf('code=') !== -1) {
+      const qs = new URLSearchParams(location.search);
+      const code = qs.get('code');
+      if (!code) return null;
+      const returnedState = qs.get('state');
+      const expectedState = sessionStorage.getItem(CLOUD_OAUTH_STATE_KEY);
+      const codeVerifier = sessionStorage.getItem(CLOUD_OAUTH_VERIFIER_KEY);
+      // No expected state means this ?code= is not ours (ignore silently).
+      if (!expectedState) return null;
+      if (expectedState !== returnedState) {
+        clearCloudSession();
+        try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+        try { sessionStorage.removeItem(CLOUD_OAUTH_VERIFIER_KEY); } catch (_) {}
+        throw new Error('OAuth-State ungültig.');
+      }
+      if (!codeVerifier) throw new Error('OAuth-Verifier fehlt in dieser Sitzung.');
+      try { sessionStorage.removeItem(CLOUD_OAUTH_STATE_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(CLOUD_OAUTH_VERIFIER_KEY); } catch (_) {}
+      try { sessionStorage.removeItem(CLOUD_OAUTH_PROVIDER_KEY); } catch (_) {}
+      const res = await fetch('./api/auth/callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, code_verifier: codeVerifier })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = data && data.error ? data.error : 'OAuth-Rückgabe fehlgeschlagen.';
+        throw new Error(msg);
+      }
+      try {
+        history.replaceState(null, '',
+          location.pathname + stripOAuthQuery(location.search));
+      } catch (_) {}
+      return saveCloudSession(data.session);
+    }
+    return null;
+  }
+  // Backwards-compatible alias for the implicit-only helper name.
+  function captureCloudSessionFromHash() {
+    // Best-effort synchronous path (implicit flow only).
+    if (!location.hash || location.hash.indexOf('access_token=') === -1) return null;
+    return captureCloudSessionFromCallback();
+  }
+  function stripOAuthQuery(search) {
+    if (!search) return '';
+    const qs = new URLSearchParams(search.replace(/^\?/, ''));
+    ['code', 'state', 'error', 'error_code', 'error_description', 'provider'].forEach(k => qs.delete(k));
+    const rest = qs.toString();
+    return rest ? '?' + rest : '';
+  }
+  async function startOAuth(provider) {
     const allowed = enabledCloudOAuthProviders().some(p => p.id === provider);
     if (!allowed) return toast('OAuth-Anbieter nicht unterstützt.', 'error');
-    const state = randomOAuthState();
-    try { sessionStorage.setItem(CLOUD_OAUTH_STATE_KEY, state); } catch (_) {}
+    let state, codeVerifier, codeChallenge;
+    try {
+      state = randomOAuthState();
+      codeVerifier = randomCodeVerifier();
+      codeChallenge = await pkceChallengeFromVerifier(codeVerifier);
+    } catch (e) {
+      console.error('PKCE setup failed', e);
+      return toast('Browser unterstützt keine Web-Crypto. OAuth nicht möglich.', 'error');
+    }
+    try {
+      sessionStorage.setItem(CLOUD_OAUTH_STATE_KEY, state);
+      sessionStorage.setItem(CLOUD_OAUTH_VERIFIER_KEY, codeVerifier);
+      sessionStorage.setItem(CLOUD_OAUTH_PROVIDER_KEY, provider);
+    } catch (_) {}
     const url = './api/auth/start?provider=' + encodeURIComponent(provider) +
       '&redirectTo=' + encodeURIComponent(cloudRedirectTarget()) +
-      '&state=' + encodeURIComponent(state);
+      '&state=' + encodeURIComponent(state) +
+      '&code_challenge=' + encodeURIComponent(codeChallenge);
     location.href = url;
   }
   function createCloudSnapshot(value) {
@@ -1003,7 +1109,14 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     };
   }
   async function createCloudBackend() {
-    captureCloudSessionFromHash();
+    try {
+      await captureCloudSessionFromCallback();
+    } catch (err) {
+      // Any OAuth-callback failure surfaces as a clean toast but must not
+      // block the app from booting in the signed-out state.
+      console.warn('OAuth callback', err);
+      toast((err && err.message) || 'OAuth-Rückgabe fehlgeschlagen.', 'error');
+    }
     const cfg = await cloudRequest('./api/config');
     if (!cfg || !cfg.configured) throw new Error('Cloud API nicht konfiguriert.');
     CLOUD_CONFIG = cfg;
@@ -1962,6 +2075,27 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
               onclick: () => auth.startOAuth(provider.id)
             }, [icon(provider.icon, { family: 'brands' }), provider.label])
           ))
+        ]));
+      }
+      // Heads-up for admins: providers listed in APP_OAUTH_PROVIDERS but
+      // turned OFF in the Supabase dashboard — OAuth cannot work until both
+      // sides agree.
+      const disabledInSupabase = (CLOUD_CONFIG && CLOUD_CONFIG.auth && CLOUD_CONFIG.auth.disabledInSupabase) || [];
+      if (disabledInSupabase.length) {
+        card.appendChild(h('div', {
+          class: 'toast toast-warn',
+          role: 'status',
+          'aria-live': 'polite',
+          style: { marginTop: '12px', textAlign: 'left' }
+        }, [
+          h('strong', { text: 'Hinweis für Admins:' }),
+          h('p', {
+            class: 'mb-0',
+            style: { margin: '4px 0 0' },
+            text: 'OAuth-Anbieter sind in Vercel freigegeben, aber in Supabase noch nicht aktiviert: '
+              + disabledInSupabase.join(', ')
+              + '. In Supabase → Authentication → Providers einschalten und Client-ID/Secret eintragen.'
+          })
         ]));
       }
     }
