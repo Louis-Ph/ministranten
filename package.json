@@ -38,7 +38,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^20.9.0",
     "http-server": "^14.1.1",
     "vitest": "^2.1.0"
   }
