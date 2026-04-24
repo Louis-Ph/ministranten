@@ -136,8 +136,10 @@ a:hover { text-decoration: underline; }
   gap: 10px;
   font-weight: 700;
   color: var(--c-text);
+  min-width: 0;
 }
 .app-header .brand .logo {
+  flex: 0 0 auto;
   width: 34px;
   height: 34px;
   border-radius: 10px;
@@ -145,6 +147,70 @@ a:hover { text-decoration: underline; }
   display: grid;
   place-items: center;
   color: #fff;
+}
+.app-header .brand-text {
+  min-width: 0;
+}
+.app-header .brand-title,
+.app-header .brand-subtitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-header .header-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+.app-header .header-actions .btn::before {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .app-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .app-header .brand {
+    flex: 1 1 auto;
+    gap: 8px;
+  }
+  .app-header .brand .logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+  .app-header .brand-title { font-size: 15px; }
+  .app-header .brand-subtitle { font-size: 11px; }
+  .app-header .header-actions {
+    gap: 6px;
+  }
+  .app-header .header-actions .btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 12px;
+  }
+  .app-header .header-actions .btn > i {
+    display: none;
+  }
+  .app-header .header-actions .btn[aria-label="Seite drucken"]::before {
+    content: "⎙";
+    display: block;
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .app-header .header-actions .btn[aria-label="Abmelden"]::before {
+    content: "↪";
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .app-header .header-actions .btn-label {
+    display: none;
+  }
 }
 
 .main-content {
@@ -1394,22 +1460,22 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     return h('header', { class: 'app-header', role: 'banner' }, [
       h('div', { class: 'brand' }, [
         h('div', { class: 'logo' }, [icon('church')]),
-        h('div', {}, [
-          h('div', { text: 'Minis Wettstetten' }),
-          h('small', { class: 'text-muted', text: user.displayName ? 'Angemeldet als ' + user.displayName : 'Ministranten-PWA' })
+        h('div', { class: 'brand-text' }, [
+          h('div', { class: 'brand-title', text: 'Minis Wettstetten' }),
+          h('small', { class: 'brand-subtitle text-muted', text: user.displayName ? 'Angemeldet als ' + user.displayName : 'Ministranten-PWA' })
         ])
       ]),
-      h('div', { class: 'row-flex' }, [
+      h('div', { class: 'row-flex header-actions' }, [
         h('button', {
           class: 'btn btn-ghost no-print',
           'aria-label': 'Seite drucken',
           onclick: () => window.print()
-        }, [icon('print'), 'Drucken']),
+        }, [icon('print'), h('span', { class: 'btn-label', text: 'Drucken' })]),
         h('button', {
           class: 'btn btn-ghost no-print',
           'aria-label': 'Abmelden',
           onclick: logout
-        }, [icon('right-from-bracket'), 'Logout'])
+        }, [icon('right-from-bracket'), h('span', { class: 'btn-label', text: 'Logout' })])
       ])
     ]);
   }
