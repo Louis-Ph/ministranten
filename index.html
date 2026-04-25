@@ -538,6 +538,10 @@ a:hover { text-decoration: underline; }
     box-shadow: 2px 0 12px rgba(29,53,87,0.05);
   }
   .bottom-nav .nav-btn {
+    /* Reset the mobile flex:1 1 0 (which makes nav buttons share row width
+       on bottom nav). On the desktop sidebar each row should be its natural
+       height instead of stretching to share the column. */
+    flex: 0 0 auto;
     flex-direction: row;
     justify-content: flex-start;
     gap: 14px;
