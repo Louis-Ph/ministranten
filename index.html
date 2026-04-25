@@ -792,6 +792,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   const PWA_INSTALL_LABEL = 'App installieren';
   const PWA_INSTALLED_MESSAGE = 'App installiert.';
   const PWA_INSTALL_UNAVAILABLE_MESSAGE = 'Installation ist in diesem Browser gerade nicht verfügbar.';
+  const AUTH_NOT_READY_MESSAGE = 'Verbindung wird noch initialisiert. Bitte kurz warten.';
   const DB_PATHS = Object.freeze({
     USERS: 'users',
     PUBLIC_PROFILES: 'publicProfiles',
@@ -1655,7 +1656,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     if (!profile || !profile.username || !profile.role) {
       throw new Error('Kein freigegebenes Benutzerprofil vorhanden. Bitte einen Entwickler bitten, den Benutzer anzulegen.');
     }
-    syncPublicProfile(uid, profile).catch(err => console.warn('public profile sync', err));
+    if (ACTIVE_BACKEND !== BACKENDS.CLOUD) {
+      syncPublicProfile(uid, profile).catch(err => console.warn('public profile sync', err));
+    }
     return {
       uid,
       email: fbUser.email,
@@ -2052,11 +2055,14 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
     if (state.view === VIEWS.DEV_LOGIN) {
       const pw = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Entwickler-Schlüssel', placeholder: 'Entwickler-Schlüssel' });
-      const submit = () => { if (enterDevMode(pw.value)) { /* view already changed */ } };
+      const submit = () => {
+        if (!db || !auth) return toast(AUTH_NOT_READY_MESSAGE, 'info');
+        if (enterDevMode(pw.value)) { /* view already changed */ }
+      };
       pw.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
       card.appendChild(h('div', { class: 'stack' }, [
         h('div', { class: 'field' }, [h('label', { text: 'Entwickler-Schlüssel' }), pw]),
-        h('button', { class: 'btn btn-primary btn-block', onclick: submit }, ['Entsperren']),
+        h('button', { class: 'btn btn-primary btn-block', disabled: !state.booted, onclick: submit }, ['Entsperren']),
         h('button', { class: 'btn btn-ghost btn-block', onclick: () => { state.view = VIEWS.LOGIN; } }, [icon('arrow-left'), 'Zurück'])
       ]));
       wrapper.appendChild(card);
@@ -2067,6 +2073,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     const username = h('input', { class: 'input', type: 'text', autocomplete: 'username', 'aria-label': 'Benutzername', placeholder: 'Benutzername' });
     const password = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', 'aria-label': 'Passwort', placeholder: 'Passwort' });
     async function submit(minRole) {
+      if (!auth) {
+        toast(AUTH_NOT_READY_MESSAGE, 'info');
+        return;
+      }
       try {
         await loginWithUsername(username.value, password.value, minRole);
       } catch (e) {
@@ -2084,11 +2094,12 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       h('div', { class: 'field' }, [h('label', { text: 'Benutzername' }), username]),
       h('div', { class: 'field' }, [h('label', { text: 'Passwort' }), password]),
       h('div', { class: 'login-actions' }, [
-        h('button', { class: 'btn btn-primary btn-block', type: 'submit' }, [icon('right-to-bracket'), 'Anmelden'])
+        h('button', { class: 'btn btn-primary btn-block', type: 'submit', disabled: !state.booted }, [icon('right-to-bracket'), 'Anmelden'])
       ]),
       h('div', { class: 'dev-slot' }, [
         h('button', {
           class: 'btn btn-subtle btn-block', type: 'button',
+          disabled: !state.booted,
           onclick: () => { state.view = VIEWS.DEV_LOGIN; }
         }, [icon('flask'), 'Entwickler Zugang'])
       ])
@@ -2750,7 +2761,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 17. Reactivity – re-render on any state change
   // -----------------------------------------------------------------
   on('state', (evt) => {
-    if (['view','user','services','chatMessages','stats','users','privateUsers','installAvailable'].indexOf(evt.key) !== -1) {
+    if (['view','user','services','chatMessages','stats','users','privateUsers','installAvailable','booted'].indexOf(evt.key) !== -1) {
       renderApp();
     }
   });
@@ -2823,11 +2834,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       ACTIVE_BACKEND = BACKENDS.MOCK;
     }
     registerServiceWorker();
+    state.booted = true;
     renderApp();
     if (auth && typeof auth.onAuthStateChanged === 'function') {
       auth.onAuthStateChanged(onAuthChanged);
     }
-    state.booted = true;
   }
 
   // -----------------------------------------------------------------
