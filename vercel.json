@@ -1,5 +1,5 @@
 {
-  "buildCommand": "nx run-many --target=build --all",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist/web",
   "cleanUrls": true,
   "headers": [
