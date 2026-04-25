@@ -4,7 +4,7 @@ Couche d'accès aux données pour les fonctions Vercel serverless. Conçue pour 
 
 ## Pourquoi cette DAL existe
 
-L'audit `docs/tech-debt-acid-pool-async.md` a identifié trois classes de problèmes dans l'ancien `api/_lib/cloud.ts` :
+L'audit `docs/tech-debt-acid-pool-async.md` a identifié trois classes de problèmes dans l'ancien `api/_lib/cloud.ts` (depuis supprimé) :
 
 1. **Pas d'atomicité** sur les écritures multi-table (DELETE puis INSERT en deux requêtes HTTP).
 2. **Pas de robustesse réseau** (zéro timeout, zéro retry, pas de keep-alive partagé).
@@ -136,17 +136,14 @@ export default withHandler<{ id?: string }, 'required'>({
 | `DAL_HTTP_MAX_CONNECTIONS` | `32` | Cap pool undici |
 | `DAL_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 
-## Migration depuis `cloud.ts`
+## Historique de migration
 
-L'ancien `cloud.ts` reste en place — la DAL est additive. La migration peut être faite handler par handler.
+L'ancien `api/_lib/cloud.ts` a été retiré (commit `chore!: remove legacy cloud.ts`). Tous les handlers sont passés par la DAL en deux phases :
 
-Étapes recommandées :
+- **Phase 1** (v1.0.0 → v1.1.0) — DAL ajoutée, RPC atomiques appliquées en DB, `/api/data` basculé sur la DAL avec `data.legacy.ts` comme parachute.
+- **Phase 2** (v1.1.0 → v1.2.0) — `users.ts`, `auth/*.ts`, `health.ts`, `config.ts` migrés ; `cloud.ts` et `data.legacy.ts` supprimés.
 
-1. **Une fois pour toutes** : exécuter `supabase/migrations/0002_dal_atomic_rpc.sql` dans le SQL Editor Supabase.
-2. **Renommer** `api/data.ts` → `api/data.legacy.ts`, **renommer** `api/data.v2.ts` → `api/data.ts`. Tester en preview Vercel.
-3. **Migrer `api/users.ts`** pour utiliser `auth.provisionWithApp(...)` qui gère la compensation Auth↔DB.
-4. **Migrer les autres handlers** un par un (`api/health.ts` → `db.healthCheck()`, `api/auth/*.ts` → `auth.*`, `api/config.ts` → `auth.listEnabledExternalProviders()`).
-5. Supprimer `cloud.ts` une fois aucun handler ne le référence plus.
+Pour rajouter un nouvel endpoint, partir directement de `withHandler` + repos (`db.users`, `db.services`, etc.). Voir `api/data.ts` ou `api/users.ts` comme références.
 
 ## Ce que la DAL **ne fait pas** (intentionnel)
 

@@ -21,9 +21,6 @@
  *     never leave the database half-written.
  *   - Stats writes use `db.stats.setField` (RPC) which is race-free
  *     under concurrent updates.
- *
- * The previous handler lives at /api/data.legacy as a temporary safety
- * net during the DAL rollout and may be removed in a future release.
  */
 
 import {
