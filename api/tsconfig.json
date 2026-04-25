@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "../dist/api",
     "rootDir": ".",
-    "module": "commonjs",
     "types": ["node"]
   },
   "include": ["**/*.ts"],

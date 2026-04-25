@@ -1,5 +1,5 @@
 {
-  "name": "minis-wettstetten",
+  "name": "web",
   "$schema": "./node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "root": ".",
@@ -23,21 +23,6 @@
       "options": {
         "command": "npx http-server -p 8080 -c-1 -s ."
       }
-    },
-    "test:unit": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "vitest run"
-      },
-      "inputs": ["default", "^production"],
-      "cache": true
-    },
-    "test:e2e": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "playwright test"
-      },
-      "dependsOn": []
     },
     "typecheck": {
       "executor": "nx:run-commands",
