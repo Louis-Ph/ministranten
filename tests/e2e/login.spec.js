@@ -56,4 +56,25 @@ test.describe('Login screen', () => {
     }
     await expect(page.getByRole('button', { name: 'Apple' })).toHaveCount(0);
   });
+
+  test('cloud login does not expose disabled provider infrastructure notice', async ({ page }) => {
+    await page.route('**/api/config', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        configured: true,
+        auth: {
+          providers: [],
+          requested: ['google', 'github', 'azure'],
+          disabledInSupabase: ['google', 'github', 'azure'],
+          allowedEmailDomains: '',
+          supabaseReachable: true
+        }
+      })
+    }));
+    await page.goto('/index.html?backend=cloud');
+    await expect(page.getByText(/Hinweis für Admins/i)).toHaveCount(0);
+    await expect(page.getByText(/Supabase Provider deaktiviert/i)).toHaveCount(0);
+    await expect(page.getByText(/OAuth-Anbieter sind in Vercel/i)).toHaveCount(0);
+  });
 });

@@ -788,6 +788,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   const MAIL_DOMAIN = '@minis-wettstetten.de';
   const DEV_MASTERKEY = 'miniswettapp';
   const CHAT_LIMIT = 40;
+  const CHAT_MESSAGE_MAX_LENGTH = 2000;
   const SYSTEM_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000; // 2h
   const PWA_INSTALL_LABEL = 'App installieren';
   const PWA_INSTALLED_MESSAGE = 'App installiert.';
@@ -1168,6 +1169,12 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       : FREE_CLOUD_OAUTH_PROVIDER_IDS;
     const enabled = new Set(configured);
     return CLOUD_OAUTH_PROVIDERS.filter(provider => enabled.has(provider.id));
+  }
+
+  function disabledCloudOAuthProviderIds() {
+    return CLOUD_CONFIG && CLOUD_CONFIG.auth && Array.isArray(CLOUD_CONFIG.auth.disabledInSupabase)
+      ? CLOUD_CONFIG.auth.disabledInSupabase.slice()
+      : [];
   }
 
   // -----------------------------------------------------------------
@@ -1881,11 +1888,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   async function sendChat(text) {
-    text = sanitizePlainText(text).slice(0, 2000);
+    text = sanitizePlainText(text).slice(0, CHAT_MESSAGE_MAX_LENGTH);
     if (!text) return;
     const u = state.user;
     if (!u) throw new Error('Nicht angemeldet.');
-    await db.ref(DB_PATHS.CHAT).push({
+    await pushChatMessage({
       uid: u.uid, username: u.username, displayName: u.displayName || u.username,
       text, ts: Date.now(), system: false
     });
@@ -1893,10 +1900,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
   async function postSystemMessage(text) {
     const u = state.user;
-    const safeText = sanitizePlainText(text).slice(0, 2000);
+    const safeText = sanitizePlainText(text).slice(0, CHAT_MESSAGE_MAX_LENGTH);
     if (!safeText) return;
     try {
-      await db.ref(DB_PATHS.CHAT).push({
+      await pushChatMessage({
         uid: '__system__', username: 'SYSTEM', displayName: 'SYSTEM',
         text: safeText,
         ts: Date.now(),
@@ -1908,12 +1915,28 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       if (!u) throw err;
       console.warn('system chat message rejected, posting user-visible fallback', err);
     }
-    await db.ref(DB_PATHS.CHAT).push({
+    await pushChatMessage({
       uid: u.uid, username: u.username, displayName: u.displayName || u.username,
       text: safeText,
       ts: Date.now(),
       system: false
     });
+  }
+
+  async function pushChatMessage(message) {
+    const ref = db.ref(DB_PATHS.CHAT).push();
+    await ref.set(message);
+    appendLocalChatMessage(ref.key, message);
+    return ref.key;
+  }
+
+  function appendLocalChatMessage(id, message) {
+    if (!id || !message) return;
+    const next = state.chatMessages
+      .filter(existing => existing.id !== id)
+      .concat([Object.assign({ id }, message)]);
+    next.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    state.chatMessages = next.slice(Math.max(0, next.length - CHAT_LIMIT));
   }
 
   // -----------------------------------------------------------------
@@ -2118,27 +2141,6 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
           ))
         ]));
       }
-      // Heads-up for admins: providers listed in APP_OAUTH_PROVIDERS but
-      // turned OFF in the Supabase dashboard — OAuth cannot work until both
-      // sides agree.
-      const disabledInSupabase = (CLOUD_CONFIG && CLOUD_CONFIG.auth && CLOUD_CONFIG.auth.disabledInSupabase) || [];
-      if (disabledInSupabase.length) {
-        card.appendChild(h('div', {
-          class: 'toast toast-warn',
-          role: 'status',
-          'aria-live': 'polite',
-          style: { marginTop: '12px', textAlign: 'left' }
-        }, [
-          h('strong', { text: 'Hinweis für Admins:' }),
-          h('p', {
-            class: 'mb-0',
-            style: { margin: '4px 0 0' },
-            text: 'OAuth-Anbieter sind in Vercel freigegeben, aber in Supabase noch nicht aktiviert: '
-              + disabledInSupabase.join(', ')
-              + '. In Supabase → Authentication → Providers einschalten und Client-ID/Secret eintragen.'
-          })
-        ]));
-      }
     }
     wrapper.appendChild(card);
     setTimeout(() => username.focus(), 0);
@@ -2264,7 +2266,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     section.appendChild(list);
     setTimeout(() => { list.scrollTop = list.scrollHeight; }, 0);
 
-    const input = h('input', { class: 'input', 'aria-label': 'Nachricht eingeben', placeholder: 'Nachricht…', maxlength: '2000' });
+    const input = h('input', { class: 'input', 'aria-label': 'Nachricht eingeben', placeholder: 'Nachricht…', maxlength: String(CHAT_MESSAGE_MAX_LENGTH) });
     const btn = h('button', { class: 'btn btn-primary', 'aria-label': 'Senden' }, [icon('paper-plane'), 'Senden']);
     const send = async () => {
       const t = input.value; if (!t.trim()) return;
@@ -2527,6 +2529,8 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
 
     section.appendChild(renderRoleOverview());
     section.appendChild(renderBackendSelector());
+    const oauthNotice = renderCloudOAuthAdminNotice();
+    if (oauthNotice) section.appendChild(oauthNotice);
     section.appendChild(renderDemoAccountsCard());
 
     section.appendChild(h('div', { class: 'card' }, [
@@ -2556,6 +2560,34 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     ]));
 
     return section;
+  }
+
+  function renderCloudOAuthAdminNotice() {
+    if (ACTIVE_BACKEND !== BACKENDS.CLOUD) return null;
+    const disabledInSupabase = disabledCloudOAuthProviderIds();
+    if (!disabledInSupabase.length) return null;
+    const card = h('div', { class: 'card' });
+    card.appendChild(h('h3', { class: 'mt-0', text: 'OAuth-Konfiguration' }));
+    card.appendChild(h('p', {
+      class: 'text-muted',
+      text: 'Diese Information ist nur im Entwicklerbereich sichtbar, weil sie Details zur Infrastruktur enthält.'
+    }));
+    card.appendChild(h('div', {
+      class: 'toast toast-warn',
+      role: 'status',
+      'aria-live': 'polite',
+      style: { textAlign: 'left' }
+    }, [
+      h('strong', { text: 'Supabase Provider deaktiviert:' }),
+      h('p', {
+        class: 'mb-0',
+        style: { margin: '4px 0 0' },
+        text: 'In Vercel freigegeben, aber in Supabase noch nicht aktiviert: '
+          + disabledInSupabase.join(', ')
+          + '. In Supabase -> Authentication -> Providers einschalten und Client-ID/Secret eintragen.'
+      })
+    ]));
+    return card;
   }
 
   function renderRoleOverview() {

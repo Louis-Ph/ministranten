@@ -67,6 +67,16 @@ test.describe('Navigation + admin flow', () => {
     const pwned = await page.evaluate(() => window.__pwn === 1);
     expect(pwned).toBe(false);
   });
+
+  test('chat shows long sent messages immediately after durable write', async ({ page }) => {
+    await loginAsDev(page);
+    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    const message = '[TEST QA] ' + 'lange Nachricht '.repeat(80);
+    await page.getByLabel(/Nachricht eingeben/i).fill(message);
+    await page.getByRole('button', { name: /Senden/i }).click();
+    await expect(page.getByLabel(/Nachricht eingeben/i)).toHaveValue('');
+    await expect(page.locator('.chat-msg .body').last()).toContainText('[TEST QA] lange Nachricht');
+  });
 });
 
 test.describe('Mobile app shell', () => {
