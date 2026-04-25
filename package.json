@@ -43,6 +43,7 @@
     "test:e2e:install": "playwright install chromium",
     "typecheck": "nx run-many --target=typecheck --all",
     "lint": "nx run-many --target=lint --all",
+    "db:migrate": "node scripts/db/migrate.mjs",
     "nx": "nx"
   },
   "devDependencies": {
@@ -57,6 +58,7 @@
     "happy-dom": "^20.9.0",
     "http-server": "^14.1.1",
     "nx": "^22.7.0",
+    "pg": "^8.20.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0"
   }

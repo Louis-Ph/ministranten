@@ -36,3 +36,6 @@ Thumbs.db
 
 # Playwright MCP
 .playwright-mcp/
+
+# Personal db helpers (read user-specific secrets, not portable)
+scripts/db/_*.sh
