@@ -235,8 +235,8 @@ a:hover { text-decoration: underline; }
 /* === Login / Welcome === */
 
 .login-wrapper {
-  min-height: calc(100vh - var(--header-h));
-  min-height: calc(100svh - var(--header-h));
+  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
   place-items: center;
   background: linear-gradient(160deg, #0066cc 0%, #3a86ff 45%, #1d3557 120%);
@@ -521,7 +521,10 @@ a:hover { text-decoration: underline; }
    bewusst nach den Basisregeln, damit er sie auf Viewports ≥ 960 px wirklich
    überschreibt (gleiche Selektor-Spezifität). */
 @media (min-width: 960px) {
-  #app { padding-left: 260px; }
+  /* Reserve sidebar space only when the sidebar is actually rendered (i.e.
+     after login). Without :has(), the login screen would inherit a 260px
+     left padding for a sidebar that does not exist, leaving a gray gutter. */
+  #app:has(.bottom-nav) { padding-left: 260px; }
   .bottom-nav {
     left: 0; right: auto; top: 0; bottom: 0;
     width: 240px; height: 100vh;
