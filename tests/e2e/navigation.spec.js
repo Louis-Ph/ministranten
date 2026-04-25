@@ -76,16 +76,12 @@ test.describe('Mobile app shell', () => {
     await loginAsDev(page);
     const header = page.locator('.app-header');
     const headerBox = await header.boundingBox();
-    const printBox = await page.getByRole('button', { name: 'Seite drucken' }).boundingBox();
     const logoutBox = await page.getByRole('button', { name: 'Abmelden' }).boundingBox();
 
     expect(headerBox, 'header bounding box').toBeTruthy();
-    expect(printBox, 'print button bounding box').toBeTruthy();
     expect(logoutBox, 'logout button bounding box').toBeTruthy();
-    for (const box of [printBox, logoutBox]) {
-      expect(box.width).toBeLessThanOrEqual(48);
-      expect(box.y).toBeGreaterThanOrEqual(headerBox.y);
-      expect(box.y + box.height).toBeLessThanOrEqual(headerBox.y + headerBox.height + 1);
-    }
+    expect(logoutBox.width).toBeLessThanOrEqual(48);
+    expect(logoutBox.y).toBeGreaterThanOrEqual(headerBox.y);
+    expect(logoutBox.y + logoutBox.height).toBeLessThanOrEqual(headerBox.y + headerBox.height + 1);
   });
 });

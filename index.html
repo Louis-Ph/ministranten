@@ -1999,12 +1999,10 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     const user = state.user || {};
     const actions = [];
     if (canPromptInstallApp()) actions.push(renderInstallButton('btn btn-success no-print'));
+    /* Drucken used to live here on every page. It is only meaningful on the
+       Statistik leaderboard, which has its own contextual button — and the
+       OS print shortcut still works everywhere thanks to @media print. */
     actions.push(
-      h('button', {
-        class: 'btn btn-ghost no-print',
-        'aria-label': 'Seite drucken',
-        onclick: () => window.print()
-      }, [icon('print'), h('span', { class: 'btn-label', text: 'Drucken' })]),
       h('button', {
         class: 'btn btn-ghost no-print',
         'aria-label': 'Abmelden',
