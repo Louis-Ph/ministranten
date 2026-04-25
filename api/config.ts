@@ -1,62 +1,70 @@
-'use strict';
+/**
+ * /api/config — Public configuration probe.
+ *
+ * Returns the OAuth providers requested via env, intersected with what
+ * Supabase Auth actually has enabled, plus a few flags used by the
+ * front-end to render the login page. Response shape preserved from
+ * the legacy handler.
+ */
 
-const { config, configurationStatus, sendError, sendJson } = require('./_lib/cloud');
+import { auth, getConfig, isConfigured, missingConfigKeys } from './_lib/dal/index.js';
+import { withHandler } from './_lib/dal/handler.js';
 
-// Maps our internal provider ids to the Supabase /auth/v1/settings `external` keys.
-const SUPABASE_PROVIDER_ALIASES = {
+// Supabase /auth/v1/settings returns providers under several aliases. We
+// canonicalize them to our internal ids so the UI doesn't have to know.
+const SUPABASE_PROVIDER_ALIASES: Readonly<Record<string, readonly string[]>> = {
   google: ['google'],
   github: ['github'],
   azure: ['azure', 'azuread', 'azure_ad'],
   apple: ['apple']
 };
 
-async function readSupabaseProviderState(cfg) {
-  if (!cfg.supabaseUrl || !cfg.publishableKey) return { reachable: false, enabled: [] };
-  try {
-    const res = await fetch(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/settings', {
-      headers: { apikey: cfg.publishableKey }
-    });
-    if (!res.ok) return { reachable: false, enabled: [] };
-    const data = await res.json().catch(() => null);
-    const external = (data && data.external) || {};
-    const enabled = [];
-    for (const id in SUPABASE_PROVIDER_ALIASES) {
-      if (SUPABASE_PROVIDER_ALIASES[id].some(alias => external[alias] === true)) enabled.push(id);
+function canonicalize(rawEnabled: readonly string[]): string[] {
+  const enabledSet = new Set(rawEnabled);
+  const out: string[] = [];
+  for (const id in SUPABASE_PROVIDER_ALIASES) {
+    if (SUPABASE_PROVIDER_ALIASES[id].some(alias => enabledSet.has(alias))) {
+      out.push(id);
     }
-    return { reachable: true, enabled };
-  } catch (_) {
-    return { reachable: false, enabled: [] };
   }
+  return out;
 }
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      return sendJson(res, 405, { error: 'Method not allowed.' });
+export default withHandler<unknown, 'none'>({
+  methods: ['GET'],
+  auth: 'none',
+  async handler({ send }) {
+    const cfg = getConfig();
+    const requested = cfg.oauthProviders.slice() as string[];
+    const allowedEmailDomains = cfg.allowedEmailDomains.join(',');
+
+    let supabaseReachable = false;
+    let enabled: string[] = [];
+    try {
+      enabled = canonicalize(await auth.listEnabledExternalProviders());
+      supabaseReachable = true;
+    } catch (_err) {
+      // Supabase unreachable from the lambda — degrade silently to the
+      // requested list (the front shows nothing different to the user).
     }
-    const status = configurationStatus();
-    const cfg = config();
-    const supabaseState = await readSupabaseProviderState(cfg);
-    const requested = status.auth.providers || [];
-    const effective = supabaseState.reachable
-      ? requested.filter(p => supabaseState.enabled.includes(p))
+
+    const effective = supabaseReachable
+      ? requested.filter(p => enabled.includes(p))
       : requested.slice();
-    const disabledInSupabase = supabaseState.reachable
-      ? requested.filter(p => !supabaseState.enabled.includes(p))
+    const disabledInSupabase = supabaseReachable
+      ? requested.filter(p => !enabled.includes(p))
       : [];
-    return sendJson(res, 200, {
-      configured: status.configured,
-      missing: status.missing,
+
+    send.json(200, {
+      configured: isConfigured(),
+      missing: missingConfigKeys(),
       auth: {
         providers: effective,
         requested,
         disabledInSupabase,
-        allowedEmailDomains: status.auth.allowedEmailDomains || '',
-        supabaseReachable: supabaseState.reachable
+        allowedEmailDomains,
+        supabaseReachable
       }
     });
-  } catch (err) {
-    return sendError(res, err);
   }
-};
+});
