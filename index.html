@@ -2263,11 +2263,47 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // -----------------------------------------------------------------
   // 15. Views
   // -----------------------------------------------------------------
+  /* Snapshot the focused input/textarea so a forced renderApp() does not
+     drop the user's half-typed text. The cloud backend polls every 4s
+     and overwrites state.users / state.privateUsers / state.services on
+     every tick, which used to trigger a full re-render and silently wipe
+     whatever the user was typing in the chat (or any other form). The
+     element needs a stable id for us to find it again after re-render. */
+  function snapshotFocusedField() {
+    const el = document.activeElement;
+    if (!el || !el.id) return null;
+    const tag = el.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') return null;
+    const skip = el.type === 'submit' || el.type === 'button' || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file';
+    if (skip) return null;
+    return {
+      id: el.id,
+      value: el.value,
+      selStart: typeof el.selectionStart === 'number' ? el.selectionStart : null,
+      selEnd: typeof el.selectionEnd === 'number' ? el.selectionEnd : null
+    };
+  }
+  function restoreFocusedField(snap) {
+    if (!snap) return;
+    const el = document.getElementById(snap.id);
+    if (!el || (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA')) return;
+    // Only restore the value if the freshly-rendered field is empty —
+    // otherwise we would clobber a value the renderer intentionally
+    // pre-filled (e.g. an edit form with current data).
+    if (!el.value && snap.value) el.value = snap.value;
+    try { el.focus(); } catch (_) {}
+    if (snap.selStart != null && snap.selEnd != null) {
+      try { el.setSelectionRange(snap.selStart, snap.selEnd); } catch (_) {}
+    }
+  }
+
   function renderApp() {
+    const focusSnap = snapshotFocusedField();
     const root = document.getElementById('app');
     clear(root);
     if (state.view === VIEWS.LOGIN || state.view === VIEWS.DEV_LOGIN) {
       root.appendChild(renderLoginView());
+      restoreFocusedField(focusSnap);
       return;
     }
     root.appendChild(renderHeader());
@@ -2285,6 +2321,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     else if (view === VIEWS.ADMIN) main.appendChild(renderAdminView());
     else if (view === VIEWS.DEV) main.appendChild(renderDevView());
     root.appendChild(renderBottomNav());
+    restoreFocusedField(focusSnap);
   }
 
   function renderHeader() {

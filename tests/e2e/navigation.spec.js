@@ -78,6 +78,44 @@ test.describe('Navigation + admin flow', () => {
     await expect(page.locator('.chat-msg .body').last()).toContainText('[TEST QA] lange Nachricht');
   });
 
+  test('cloud poll tick (state.users / state.services rewrite) does not eat the chat input', async ({ page }) => {
+    /* Regression: the cloud backend's on('value', ...) is implemented as
+       setInterval(tick, 4000), so every 4 seconds state.users,
+       state.privateUsers and state.services are reassigned. Each
+       reassignment fired the state listener which called renderApp(),
+       which destroyed <input id="chat-input"> together with the user's
+       focus and half-typed text. snapshotFocusedField + restoreFocusedField
+       in renderApp() now preserves value, selection and focus across any
+       forced re-render. */
+    await loginAsDev(page);
+    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    const input = page.locator('#chat-input');
+    await input.click();
+    await input.fill('Hallo wie geht es dir?');
+    // Move the caret to position 5 — same as a user pausing mid-word.
+    await page.evaluate(() => {
+      const i = document.getElementById('chat-input');
+      i.focus();
+      i.setSelectionRange(5, 5);
+    });
+    // Simulate three different non-chat state mutations the cloud poll
+    // would trigger on every 4-second tick.
+    await page.evaluate(() => {
+      const s = window.__MinisTest.state;
+      s.users = Object.assign({}, s.users, { fakeUser: { username: 'x', displayName: 'X' } });
+      s.privateUsers = Object.assign({}, s.privateUsers);
+      s.services = s.services.slice();
+    });
+    // Focus, value AND caret position all survive.
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue('Hallo wie geht es dir?');
+    const caret = await page.evaluate(() => {
+      const i = document.getElementById('chat-input');
+      return [i.selectionStart, i.selectionEnd];
+    });
+    expect(caret).toEqual([5, 5]);
+  });
+
   test('incoming message does not steal focus from a half-typed reply', async ({ page }) => {
     /* Regression: state.chatMessages mutations used to trigger a full
        renderApp(), which destroyed <input id="chat-input"> together
