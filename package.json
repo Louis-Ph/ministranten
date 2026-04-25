@@ -1,7 +1,7 @@
 {
   "name": "minis-wettstetten",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Progressive Web App für die Ministrantinnen und Ministranten der Pfarrei Wettstetten mit Vercel API Routes und Supabase Postgres/Auth.",
   "keywords": [
     "pwa",
