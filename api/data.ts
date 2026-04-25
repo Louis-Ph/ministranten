@@ -24,61 +24,12 @@
  */
 
 import {
-  db, errors, types, requireRole, loadRootState
+  authz, db, errors, types, requireRole, loadRootState
 } from './_lib/dal/index.js';
 import { getSupabase } from './_lib/dal/supabase.js';
 import { withHandler } from './_lib/dal/handler.js';
 
 type Path = readonly string[];
-
-// ---------------------------------------------------------------------------
-// Authorization (mirrors cloud.ts:assertReadAllowed/assertWriteAllowed).
-// ---------------------------------------------------------------------------
-
-function assertReadAllowed(path: Path, uid: string, role: types.RoleId): void {
-  const root = path[0] || '';
-  if (!root) {
-    if (!types.roleAtLeast(role, 'dev')) throw errors.forbidden('Lecture root reservee au role dev.');
-    return;
-  }
-  if (root === 'publicProfiles' || root === 'services' || root === 'chat') return;
-  if (root === 'users' || root === 'stats') {
-    if (path.length >= 2 && path[1] === uid) return;
-    if (types.roleAtLeast(role, 'admin')) return;
-  }
-  throw errors.forbidden('Lecture refusee.');
-}
-
-function assertWriteAllowed(path: Path, uid: string, role: types.RoleId, value: unknown): void {
-  const root = path[0] || '';
-  if (!root) {
-    if (!types.roleAtLeast(role, 'dev')) throw errors.forbidden('Import root reserve au role dev.');
-    return;
-  }
-  if (root === 'users') {
-    if (path[1] === uid && ['displayName', 'mustChangePassword'].includes(path[2])) return;
-    if (types.roleAtLeast(role, 'dev')) return;
-  }
-  if (root === 'publicProfiles') {
-    if (path[1] === uid && ['displayName', 'username'].includes(path[2])) return;
-    if (types.roleAtLeast(role, 'dev')) return;
-  }
-  if (root === 'services') {
-    if (types.roleAtLeast(role, 'admin')) return;
-    if (path[2] === 'attendees' && path[3] === uid) return;
-    if (path[2] === 'replacement') return;
-  }
-  if (root === 'chat' && value && typeof value === 'object') {
-    const v = value as { uid?: string; triggeredBy?: string };
-    if (v.uid === uid) return;
-    if (v.uid === '__system__' && v.triggeredBy === uid) return;
-  }
-  if (root === 'stats') {
-    if (path[1] === uid && ['attended', 'cancelled', 'lateCancelled'].includes(path[2])) return;
-    if (types.roleAtLeast(role, 'admin')) return;
-  }
-  throw errors.forbidden('Ecriture refusee.');
-}
 
 // ---------------------------------------------------------------------------
 // Targeted reads.
@@ -237,10 +188,7 @@ async function writePath(path: Path, value: unknown): Promise<void> {
 // Path utilities.
 // ---------------------------------------------------------------------------
 
-function parsePath(raw: unknown): string[] {
-  const s = '/' + String(raw || '/').trim().replace(/^\/+|\/+$/g, '');
-  return s.split('/').filter(Boolean);
-}
+const parsePath = authz.parsePath;
 
 function getQueryString(value: unknown): string {
   if (Array.isArray(value)) return String(value[0] || '');
@@ -259,7 +207,7 @@ export default withHandler<{ path?: string; value?: unknown }, 'required'>({
 
     if (req.method === 'GET') {
       const path = parsePath(getQueryString(req.query?.path));
-      assertReadAllowed(path, session.id, role);
+      authz.assertReadAllowed(path, session.id, role);
       const limit = Number(getQueryString(req.query?.limit)) || undefined;
       const value = await readPath(path, limit);
       send.json(200, { value: value == null ? null : value });
@@ -277,7 +225,7 @@ export default withHandler<{ path?: string; value?: unknown }, 'required'>({
     } else {
       value = body.value;
     }
-    assertWriteAllowed(path, session.id, role, value);
+    authz.assertWriteAllowed(path, session.id, role, value);
     await writePath(path, value);
     send.json(200, { ok: true });
   }

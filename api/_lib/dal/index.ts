@@ -21,6 +21,7 @@ import { createAuthRepository } from './repositories/auth.js';
 import { getConfig, isConfigured, missingConfigKeys, type DalConfig, type OauthProviderId } from './config.js';
 import * as errors from './errors.js';
 import * as types from './types.js';
+import * as authz from './authz.js';
 import { getSupabase } from './supabase.js';
 import { createLogger, type Logger } from './logger.js';
 
@@ -58,7 +59,7 @@ export const auth: AuthRepoType = new Proxy({} as AuthRepoType, {
 });
 
 // Re-export the helpers and types that handlers need.
-export { errors, types };
+export { errors, types, authz };
 export { requireRole };
 export { isConfigured, missingConfigKeys, getConfig };
 export type { DalConfig, OauthProviderId };
