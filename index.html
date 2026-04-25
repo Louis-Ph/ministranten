@@ -696,10 +696,17 @@ a:hover { text-decoration: underline; }
 
 .empty-state {
   text-align: center;
-  padding: 32px 16px;
+  padding: 56px 24px;
   color: var(--c-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
-.empty-state i { font-size: 38px; margin-bottom: 8px; display: block; color: #a5b2c6; }
+.empty-state i { font-size: 44px; margin-bottom: 4px; display: block; color: #a5b2c6; }
+.empty-state p { margin: 0; max-width: 38ch; line-height: 1.5; }
+.empty-state .empty-state-title { color: var(--c-text); font-weight: 600; font-size: 16px; }
+.empty-state .btn { margin-top: 12px; }
 
 /* === Reduced motion (ISO 9241-171 / WCAG 2.3) === */
 @media (prefers-reduced-motion: reduce) {
@@ -2138,10 +2145,22 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     ]));
     const upcoming = state.services.filter(s => !isPast(s.startMs)).sort((a, b) => a.startMs - b.startMs);
     if (!upcoming.length) {
-      container.appendChild(h('div', { class: 'empty-state' }, [
+      const u = state.user || {};
+      const canPlan = roleAtLeast(u.role, ROLES.ADMIN);
+      const empty = h('div', { class: 'empty-state' }, [
         icon('calendar-xmark'),
-        h('p', { text: 'Aktuell sind keine Gottesdienste eingeplant.' })
-      ]));
+        h('p', { class: 'empty-state-title', text: 'Noch keine Dienste geplant.' }),
+        h('p', { text: canPlan
+          ? 'Lege den ersten Gottesdienst an, damit deine Ministranten sich eintragen können.'
+          : 'Sobald dein Obermini neue Dienste einträgt, erscheinen sie hier.' })
+      ]);
+      if (canPlan) {
+        empty.appendChild(h('button', {
+          class: 'btn btn-primary',
+          onclick: () => { state.view = VIEWS.ADMIN; }
+        }, [icon('plus'), 'Neuen Dienst anlegen']));
+      }
+      container.appendChild(empty);
     } else {
       for (const s of upcoming) container.appendChild(renderServiceCard(s));
     }
@@ -2356,7 +2375,14 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       ]);
       list.appendChild(row);
     }
-    if (!all.length) list.appendChild(h('div', { class: 'empty-state' }, [icon('calendar-plus'), 'Noch keine Dienste.']));
+    if (!all.length) {
+      list.appendChild(h('div', { class: 'empty-state' }, [
+        icon('calendar-plus'),
+        h('p', { class: 'empty-state-title', text: 'Noch keine Dienste angelegt.' }),
+        h('p', { text: 'Erstelle den ersten Dienst (z. B. Sonntagsmesse) — die Ministranten sehen ihn dann auf der Startseite.' }),
+        h('button', { class: 'btn btn-primary', onclick: () => openEditServiceModal(null) }, [icon('plus'), 'Ersten Dienst anlegen'])
+      ]));
+    }
     section.appendChild(list);
     return section;
   }
