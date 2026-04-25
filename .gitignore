@@ -4,8 +4,7 @@ dist/
 *.tsbuildinfo
 
 # Vercel
-.vercel/local
-.vercel/output/
+.vercel
 
 # Playwright
 playwright-report/
