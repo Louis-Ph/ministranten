@@ -1,36 +1,42 @@
-'use strict';
+/**
+ * /api/auth/refresh — Exchange a refresh-token for a fresh access-token.
+ *
+ * All upstream failures collapse to `Session expiree.` / `refresh_failed`
+ * so the front-end can clear the session and prompt re-login uniformly.
+ */
 
-const { config, readBody, sendError, sendJson } = require('../_lib/cloud');
+import { auth, errors } from '../_lib/dal/index.js';
+import { withHandler } from '../_lib/dal/handler.js';
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', 'POST');
-      return sendJson(res, 405, { error: 'Method not allowed.' });
+interface RefreshBody {
+  refresh_token?: string;
+}
+
+export default withHandler<RefreshBody, 'none'>({
+  methods: ['POST'],
+  auth: 'none',
+  async handler({ body, send }) {
+    const refreshToken = String(body.refresh_token || '');
+    if (!refreshToken) {
+      throw new errors.AppError(401, 'Session expiree.', 'refresh_failed');
     }
-    const cfg = config();
-    const body = await readBody(req);
-    const response = await fetch(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      headers: {
-        apikey: cfg.publishableKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ refresh_token: body.refresh_token })
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) return sendJson(res, 401, { error: 'Session expiree.', code: 'refresh_failed' });
-    return sendJson(res, 200, {
+
+    let tokens;
+    try {
+      tokens = await auth.refresh(refreshToken);
+    } catch (_err) {
+      throw new errors.AppError(401, 'Session expiree.', 'refresh_failed');
+    }
+
+    send.json(200, {
       session: {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        expires_at: data.expires_at,
-        token_type: data.token_type
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        expires_at: tokens.expires_at,
+        token_type: tokens.token_type
       },
-      user: data.user
+      user: tokens.user
     });
-  } catch (err) {
-    return sendError(res, err);
   }
-};
+});

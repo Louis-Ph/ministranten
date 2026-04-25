@@ -1,37 +1,45 @@
-'use strict';
+/**
+ * /api/auth/start — Begin an OAuth login flow.
+ *
+ * Validates the provider and PKCE inputs, then redirects to Supabase's
+ * `/auth/v1/authorize` endpoint with the right query string.
+ */
 
-const { config, configuredOAuthProviders, sendError, validateProvider } = require('../_lib/cloud');
+import { errors, getConfig, type OauthProviderId } from '../_lib/dal/index.js';
+import { withHandler } from '../_lib/dal/handler.js';
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      res.statusCode = 405;
-      return res.end('Method not allowed.');
+const VALID_PROVIDERS: ReadonlySet<OauthProviderId> = new Set(['google', 'github', 'azure', 'apple']);
+
+export default withHandler<unknown, 'none'>({
+  methods: ['GET'],
+  auth: 'none',
+  async handler({ req, send }) {
+    const cfg = getConfig();
+    const provider = readQuery(req.query?.provider) as OauthProviderId;
+    if (!VALID_PROVIDERS.has(provider)) {
+      throw errors.badRequest('Provider OAuth non supporte.', 'invalid_provider');
     }
-    const provider = String(req.query.provider || '');
-    validateProvider(provider);
-    if (!configuredOAuthProviders().includes(provider)) {
-      res.statusCode = 403;
-      return res.end('OAuth provider disabled.');
+    if (!cfg.oauthProviders.includes(provider)) {
+      throw errors.forbidden('OAuth provider disabled.');
     }
-    const cfg = config();
-    const requestedRedirect = String(req.query.redirectTo || '');
-    const redirectTo = safeRedirectTo(requestedRedirect, cfg.appBaseUrl);
-    const state = String(req.query.state || '');
+
+    const state = readQuery(req.query?.state);
     if (state && !/^[a-f0-9]{32}$/.test(state)) {
-      res.statusCode = 400;
-      return res.end('Invalid OAuth state.');
+      throw errors.badRequest('Invalid OAuth state.', 'invalid_input');
     }
+
     // PKCE: RFC 7636 code_challenge (base64url of SHA-256(code_verifier)).
     // 43..128 chars, URL-safe alphabet. If absent we skip PKCE and Supabase
     // will use the implicit grant.
-    const codeChallenge = String(req.query.code_challenge || '');
+    const codeChallenge = readQuery(req.query?.code_challenge);
     if (codeChallenge && !/^[A-Za-z0-9_-]{43,128}$/.test(codeChallenge)) {
-      res.statusCode = 400;
-      return res.end('Invalid code_challenge.');
+      throw errors.badRequest('Invalid code_challenge.', 'invalid_input');
     }
-    const authorizeUrl = new URL(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/authorize');
+
+    const requestedRedirect = readQuery(req.query?.redirectTo);
+    const redirectTo = safeRedirectTo(requestedRedirect, cfg.appBaseUrl);
+
+    const authorizeUrl = new URL(cfg.supabaseUrl + '/auth/v1/authorize');
     authorizeUrl.searchParams.set('provider', provider);
     if (redirectTo) authorizeUrl.searchParams.set('redirect_to', redirectTo);
     if (state) authorizeUrl.searchParams.set('state', state);
@@ -40,19 +48,25 @@ module.exports = async function handler(req, res) {
       authorizeUrl.searchParams.set('code_challenge_method', 'S256');
       authorizeUrl.searchParams.set('flow_type', 'pkce');
     }
-    res.statusCode = 302;
-    res.setHeader('Location', authorizeUrl.toString());
-    return res.end();
-  } catch (err) {
-    return sendError(res, err);
+    send.redirect(302, authorizeUrl.toString());
   }
-};
+});
 
-function safeRedirectTo(requested, appBaseUrl) {
+function readQuery(value: unknown): string {
+  if (Array.isArray(value)) return String(value[0] || '');
+  return String(value || '');
+}
+
+function safeRedirectTo(requested: string, appBaseUrl: string): string {
   if (!requested) return appBaseUrl || '';
   if (!appBaseUrl) return requested;
-  const base = new URL(appBaseUrl.startsWith('http') ? appBaseUrl : 'https://' + appBaseUrl);
-  const candidate = new URL(requested);
-  if (candidate.origin !== base.origin) return appBaseUrl;
-  return candidate.toString();
+  try {
+    const baseHref = appBaseUrl.startsWith('http') ? appBaseUrl : 'https://' + appBaseUrl;
+    const base = new URL(baseHref);
+    const candidate = new URL(requested);
+    if (candidate.origin !== base.origin) return appBaseUrl;
+    return candidate.toString();
+  } catch {
+    return appBaseUrl;
+  }
 }

@@ -1,31 +1,30 @@
-'use strict';
+/**
+ * /api/auth/update-password — Self-service password change.
+ *
+ * Authenticated users only. Sets a new password on the Supabase Auth
+ * user identified by the bearer token's session.
+ */
 
-const { config, readBody, requireUser, sendError, sendJson } = require('../_lib/cloud');
+import { auth, errors } from '../_lib/dal/index.js';
+import { withHandler } from '../_lib/dal/handler.js';
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', 'POST');
-      return sendJson(res, 405, { error: 'Method not allowed.' });
+interface UpdatePasswordBody {
+  password?: string;
+}
+
+export default withHandler<UpdatePasswordBody, 'required'>({
+  methods: ['POST'],
+  auth: 'required',
+  async handler({ body, session, send }) {
+    const password = String(body.password || '');
+    if (password.length < 8) {
+      throw new errors.AppError(400, 'Mot de passe trop court.', 'weak_password');
     }
-    const user = await requireUser(req);
-    const body = await readBody(req);
-    if (!body.password || String(body.password).length < 8) {
-      return sendJson(res, 400, { error: 'Mot de passe trop court.', code: 'weak_password' });
+    try {
+      await auth.updatePassword(session.id, password);
+    } catch (_err) {
+      throw new errors.AppError(400, 'Mot de passe non mis a jour.', 'password_update_failed');
     }
-    const cfg = config();
-    const response = await fetch(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/admin/users/' + encodeURIComponent(user.id), {
-      method: 'PUT',
-      headers: {
-        apikey: cfg.serviceRoleKey,
-        Authorization: 'Bearer ' + cfg.serviceRoleKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ password: body.password })
-    });
-    if (!response.ok) return sendJson(res, 400, { error: 'Mot de passe non mis a jour.', code: 'password_update_failed' });
-    return sendJson(res, 200, { ok: true });
-  } catch (err) {
-    return sendError(res, err);
+    send.json(200, { ok: true });
   }
-};
+});

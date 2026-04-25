@@ -1,36 +1,45 @@
-'use strict';
+/**
+ * /api/auth/password — Email + password sign-in.
+ *
+ * Wraps `auth.signInWithPassword`. All upstream failures collapse to a
+ * single user-facing message ("Anmeldung fehlgeschlagen", code
+ * `invalid_login`) so we never leak whether an account exists.
+ */
 
-const { config, readBody, sendError, sendJson } = require('../_lib/cloud');
+import { auth, errors } from '../_lib/dal/index.js';
+import { withHandler } from '../_lib/dal/handler.js';
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', 'POST');
-      return sendJson(res, 405, { error: 'Method not allowed.' });
+interface SignInBody {
+  email?: string;
+  password?: string;
+}
+
+export default withHandler<SignInBody, 'none'>({
+  methods: ['POST'],
+  auth: 'none',
+  async handler({ body, send }) {
+    const email = String(body.email || '');
+    const password = String(body.password || '');
+    if (!email || !password) {
+      throw new errors.AppError(401, 'Anmeldung fehlgeschlagen.', 'invalid_login');
     }
-    const cfg = config();
-    const body = await readBody(req);
-    const response = await fetch(cfg.supabaseUrl.replace(/\/+$/, '') + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {
-        apikey: cfg.publishableKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email: body.email, password: body.password })
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) return sendJson(res, response.status, { error: 'Anmeldung fehlgeschlagen.', code: 'invalid_login' });
-    return sendJson(res, 200, {
+
+    let tokens;
+    try {
+      tokens = await auth.signInWithPassword(email, password);
+    } catch (_err) {
+      throw new errors.AppError(401, 'Anmeldung fehlgeschlagen.', 'invalid_login');
+    }
+
+    send.json(200, {
       session: {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        expires_at: data.expires_at,
-        token_type: data.token_type
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in,
+        expires_at: tokens.expires_at,
+        token_type: tokens.token_type
       },
-      user: data.user
+      user: tokens.user
     });
-  } catch (err) {
-    return sendError(res, err);
   }
-};
+});

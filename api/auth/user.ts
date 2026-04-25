@@ -1,23 +1,23 @@
-'use strict';
+/**
+ * /api/auth/user — Returns the current session's user.
+ *
+ * `withHandler` already validates the bearer token via `auth.resolveSession`
+ * and enforces the email-domain gate before this handler runs.
+ */
 
-const { requireUser, sendError, sendJson } = require('../_lib/cloud');
+import { withHandler } from '../_lib/dal/handler.js';
 
-module.exports = async function handler(req, res) {
-  try {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      return sendJson(res, 405, { error: 'Method not allowed.' });
-    }
-    const user = await requireUser(req);
-    return sendJson(res, 200, {
+export default withHandler<unknown, 'required'>({
+  methods: ['GET'],
+  auth: 'required',
+  async handler({ session, send }) {
+    send.json(200, {
       user: {
-        id: user.id,
-        email: user.email,
-        app_metadata: user.app_metadata || {},
-        user_metadata: user.user_metadata || {}
+        id: session.id,
+        email: session.email,
+        app_metadata: session.appMetadata,
+        user_metadata: session.userMetadata
       }
     });
-  } catch (err) {
-    return sendError(res, err);
   }
-};
+});
