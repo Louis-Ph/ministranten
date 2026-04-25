@@ -31,11 +31,20 @@
    DSGVO-konforme Darstellung, druckfähige Ansichten (A4).
    =================================================================== */
 
+/* === Theme tokens =================================================
+   The :root block holds layout/typography/motion tokens that never
+   change between themes, plus the default colour palette. Each
+   [data-theme="..."] block below overrides only the colour layer,
+   so theme switching is one attribute on <html>.
+   Themes 'streber-*' are ports of the Streber Danube VS Code themes
+   (see /Users/.../danube-streber-theme), tuned for parish-app contrast. */
 :root {
+  /* Colours (default = Minis Wett blue). */
   --c-bg: #f2f5f8;
   --c-card: #ffffff;
   --c-primary: #0066cc;
   --c-primary-ink: #ffffff;
+  --c-primary-hover: #0058b4;
   --c-danger: #e63946;
   --c-danger-ink: #ffffff;
   --c-success: #00cc88;
@@ -45,7 +54,14 @@
   --c-border: #e3e9f0;
   --c-overlay: rgba(29, 53, 87, 0.55);
   --c-focus: #ffbe0b;
+  --c-active-bg: #eaf3ff;
+  --c-input-bg: #ffffff;
+  --c-subtle: #eef2f7;
+  --c-subtle-hover: #e2e9f2;
+  --c-login-grad: linear-gradient(160deg, #0066cc 0%, #3a86ff 45%, #1d3557 120%);
+  color-scheme: light;
 
+  /* Layout / motion tokens (theme-invariant). */
   --r-sm: 10px;
   --r-md: 14px;
   --r-lg: 20px;
@@ -58,6 +74,7 @@
 
   --z-app: 1;
   --z-bottom-nav: 50;
+  --z-fab: 60;
   --z-toast: 9000;
   --z-modal: 9500;
   --z-forced-modal: 9999;
@@ -69,6 +86,116 @@
   --motion-med: 240ms;
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Streber Light — parchment + sage olive, calm monastic feel. */
+[data-theme="streber-light"] {
+  --c-bg: #faf6ef;
+  --c-card: #fdfaf3;
+  --c-primary: #5a6e4a;
+  --c-primary-ink: #ffffff;
+  --c-primary-hover: #6a7e58;
+  --c-danger: #c66a5a;
+  --c-success: #5a8f6a;
+  --c-text: #3a322a;
+  --c-text-muted: #6e6253;
+  --c-border: #d3c6b2;
+  --c-overlay: rgba(58, 50, 42, 0.55);
+  --c-focus: #977646;
+  --c-active-bg: #e8e0d4;
+  --c-input-bg: #fdfaf3;
+  --c-subtle: #efe7d8;
+  --c-subtle-hover: #e3d9ca;
+  --c-login-grad: linear-gradient(160deg, #faf6ef 0%, #e8e0d4 45%, #c0b098 120%);
+  color-scheme: light;
+}
+
+/* Streber Light Danube Goddess — parchment + indigo, illuminated manuscript. */
+[data-theme="streber-light-danube"] {
+  --c-bg: #f4eee2;
+  --c-card: #faf6eb;
+  --c-primary: #5a7fa8;
+  --c-primary-ink: #ffffff;
+  --c-primary-hover: #6a8db5;
+  --c-danger: #c66a5a;
+  --c-success: #6e9d6a;
+  --c-text: #3a3530;
+  --c-text-muted: #6e655a;
+  --c-border: #c8b89e;
+  --c-overlay: rgba(58, 53, 48, 0.55);
+  --c-focus: #9e8045;
+  --c-active-bg: #dde6f0;
+  --c-input-bg: #faf6eb;
+  --c-subtle: #ebe3d0;
+  --c-subtle-hover: #ded3bc;
+  --c-login-grad: linear-gradient(160deg, #f4eee2 0%, #c5d2e0 45%, #5a7fa8 130%);
+  color-scheme: light;
+}
+
+/* Streber Dark — forest green on near-black, calm and serious. */
+[data-theme="streber-dark"] {
+  --c-bg: #0d110d;
+  --c-card: #161a16;
+  --c-primary: #5a8f6a;
+  --c-primary-ink: #0d110d;
+  --c-primary-hover: #6fa37e;
+  --c-danger: #e87a6a;
+  --c-success: #5a8f6a;
+  --c-text: #d8e5d8;
+  --c-text-muted: #8ea18e;
+  --c-border: #2a302a;
+  --c-overlay: rgba(0, 0, 0, 0.7);
+  --c-focus: #a8956a;
+  --c-active-bg: #1f2a22;
+  --c-input-bg: #11151a;
+  --c-subtle: #1a201a;
+  --c-subtle-hover: #232a23;
+  --c-login-grad: linear-gradient(160deg, #0d110d 0%, #1a2a1c 45%, #355340 120%);
+  color-scheme: dark;
+}
+
+/* Streber Blue Danube Goddess — deep navy + warm gold accents. */
+[data-theme="streber-blue-danube"] {
+  --c-bg: #0b1322;
+  --c-card: #111b2f;
+  --c-primary: #5e95df;
+  --c-primary-ink: #0b1322;
+  --c-primary-hover: #7eaee7;
+  --c-danger: #e87a6a;
+  --c-success: #6fb38b;
+  --c-text: #dbe7f8;
+  --c-text-muted: #8ca0bf;
+  --c-border: #263750;
+  --c-overlay: rgba(0, 0, 0, 0.7);
+  --c-focus: #ddb86e;
+  --c-active-bg: #1d2d4a;
+  --c-input-bg: #0f1830;
+  --c-subtle: #15203a;
+  --c-subtle-hover: #1d2a47;
+  --c-login-grad: linear-gradient(160deg, #0b1322 0%, #1d2d4a 45%, #4b7ec3 130%);
+  color-scheme: dark;
+}
+
+/* Streber Smoked Gold — incense brown + liturgical gold. Made for a parish app. */
+[data-theme="streber-smoked-gold"] {
+  --c-bg: #14110d;
+  --c-card: #201a13;
+  --c-primary: #ba934e;
+  --c-primary-ink: #14110d;
+  --c-primary-hover: #d0a85e;
+  --c-danger: #e87a6a;
+  --c-success: #9bb87a;
+  --c-text: #e8dfca;
+  --c-text-muted: #9c8e74;
+  --c-border: #3b3023;
+  --c-overlay: rgba(0, 0, 0, 0.7);
+  --c-focus: #e0ba6b;
+  --c-active-bg: #2e2515;
+  --c-input-bg: #1a1610;
+  --c-subtle: #25201a;
+  --c-subtle-hover: #2e2820;
+  --c-login-grad: linear-gradient(160deg, #14110d 0%, #2e2515 45%, #9c7138 130%);
+  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -194,17 +321,17 @@ a:hover { text-decoration: underline; }
   .app-header .header-actions .btn > i {
     display: none;
   }
-  .app-header .header-actions .btn[aria-label="Seite drucken"]::before {
-    content: "⎙";
-    display: block;
-    font-size: 19px;
-    font-weight: 800;
-    line-height: 1;
-  }
   .app-header .header-actions .btn[aria-label="App installieren"]::before {
     content: "↓";
     display: block;
     font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .app-header .header-actions .btn[aria-label="Einstellungen öffnen"]::before {
+    content: "⚙";
+    display: block;
+    font-size: 20px;
     font-weight: 800;
     line-height: 1;
   }
@@ -239,7 +366,7 @@ a:hover { text-decoration: underline; }
   min-height: 100svh;
   display: grid;
   place-items: center;
-  background: linear-gradient(160deg, #0066cc 0%, #3a86ff 45%, #1d3557 120%);
+  background: var(--c-login-grad);
   padding: 24px 16px;
 }
 
@@ -297,19 +424,19 @@ a:hover { text-decoration: underline; }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .btn-primary { background: var(--c-primary); color: var(--c-primary-ink); box-shadow: var(--shadow-sm); }
-.btn-primary:hover:not(:disabled) { background: #0058b4; box-shadow: var(--shadow-md); }
+.btn-primary:hover:not(:disabled) { background: var(--c-primary-hover); box-shadow: var(--shadow-md); }
 
 .btn-danger { background: var(--c-danger); color: var(--c-danger-ink); box-shadow: var(--shadow-sm); }
-.btn-danger:hover:not(:disabled) { background: #c62f3b; box-shadow: var(--shadow-md); }
+.btn-danger:hover:not(:disabled) { filter: brightness(0.92); box-shadow: var(--shadow-md); }
 
 .btn-success { background: var(--c-success); color: var(--c-success-ink); box-shadow: var(--shadow-sm); }
-.btn-success:hover:not(:disabled) { background: #00b377; box-shadow: var(--shadow-md); }
+.btn-success:hover:not(:disabled) { filter: brightness(0.92); box-shadow: var(--shadow-md); }
 
 .btn-ghost { background: transparent; color: var(--c-text); border-color: var(--c-border); }
-.btn-ghost:hover:not(:disabled) { background: #f5f8fb; }
+.btn-ghost:hover:not(:disabled) { background: var(--c-subtle); }
 
-.btn-subtle { background: #eef2f7; color: var(--c-text); }
-.btn-subtle:hover:not(:disabled) { background: #e2e9f2; }
+.btn-subtle { background: var(--c-subtle); color: var(--c-text); }
+.btn-subtle:hover:not(:disabled) { background: var(--c-subtle-hover); }
 
 .btn-block { width: 100%; }
 
@@ -322,7 +449,7 @@ a:hover { text-decoration: underline; }
 .input, .textarea, .select {
   font: inherit;
   color: var(--c-text);
-  background: #fff;
+  background: var(--c-input-bg);
   border: 1px solid var(--c-border);
   border-radius: var(--r-md);
   padding: 12px 14px;
@@ -330,10 +457,11 @@ a:hover { text-decoration: underline; }
   width: 100%;
   transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
+.input::placeholder, .textarea::placeholder { color: var(--c-text-muted); opacity: 0.65; }
 .input:focus, .textarea:focus, .select:focus {
   border-color: var(--c-primary);
   outline: none;
-  box-shadow: 0 0 0 4px rgba(0,102,204,0.18);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--c-primary) 28%, transparent);
 }
 .textarea { resize: vertical; min-height: 96px; }
 
@@ -514,7 +642,7 @@ a:hover { text-decoration: underline; }
   transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 .nav-btn i { font-size: 20px; }
-.nav-btn.active { color: var(--c-primary); background: #eaf3ff; }
+.nav-btn.active { color: var(--c-primary); background: var(--c-active-bg); }
 .nav-btn:hover:not(.active) { color: var(--c-text); }
 
 /* Desktop-Layout: feste Sidebar statt Bottom-Navigation. Dieses Block steht
@@ -600,13 +728,13 @@ a:hover { text-decoration: underline; }
   display: flex; flex-direction: column; gap: 2px;
   padding: 8px 12px;
   border-radius: 14px;
-  background: #f5f8fb;
+  background: var(--c-subtle);
   border: 1px solid transparent;
   max-width: 90%;
   word-wrap: break-word;
   overflow-wrap: anywhere;
 }
-.chat-msg.mine  { background: #d7ecff; align-self: flex-end; }
+.chat-msg.mine  { background: var(--c-active-bg); align-self: flex-end; }
 .chat-msg.system{ background: #fff; border: 2px solid var(--c-danger); color: var(--c-text); align-self: stretch; }
 .chat-msg .author { font-weight: 700; font-size: 12px; }
 .chat-msg .time { font-size: 11px; color: var(--c-text-muted); }
@@ -711,7 +839,7 @@ h4 { font-size: 14px; line-height: 1.3; font-weight: 700; text-transform: upperc
   align-items: center;
   gap: 8px;
 }
-.empty-state i { font-size: 44px; margin-bottom: 4px; display: block; color: #a5b2c6; }
+.empty-state i { font-size: 44px; margin-bottom: 4px; display: block; color: var(--c-text-muted); opacity: 0.6; }
 .empty-state p { margin: 0; max-width: 38ch; line-height: 1.5; }
 .empty-state .empty-state-title { color: var(--c-text); font-weight: 600; font-size: 16px; }
 .empty-state .btn { margin-top: 12px; }
@@ -719,6 +847,144 @@ h4 { font-size: 14px; line-height: 1.3; font-weight: 700; text-transform: upperc
 /* === Reduced motion (ISO 9241-171 / WCAG 2.3) === */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+}
+
+/* === Settings (gear icon + theme picker + Doku) ====================
+   Floating gear button is fixed top-right and visible on every view —
+   logged in or not. Settings modal has two tabs: Themes (visual cards)
+   and Dokumentation (German user manual). */
+.settings-fab {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--c-border);
+  background: var(--c-card);
+  color: var(--c-text);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  z-index: var(--z-fab);
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.settings-fab:hover { background: var(--c-subtle); box-shadow: var(--shadow-md); }
+.settings-fab:active { transform: scale(0.96); }
+.settings-fab i { font-size: 18px; }
+@media print { .settings-fab { display: none !important; } }
+/* When the in-app header is rendered, hide the floating FAB — the
+   header carries its own gear button next to Logout, so we avoid
+   stacking two of them on top of each other. */
+body:has(.app-header) .settings-fab { display: none; }
+
+/* On the login screen the FAB sits on the gradient — give it a softer
+   look so it does not compete with the form. */
+body:has(.login-wrapper) .settings-fab {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #1d3557;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+body:has(.login-wrapper) .settings-fab:hover { background: #fff; }
+
+.settings-modal { max-width: 720px; }
+.settings-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--c-subtle);
+  padding: 4px;
+  border-radius: var(--r-md);
+  margin: 6px 0 18px;
+}
+.settings-tab {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: calc(var(--r-md) - 4px);
+  background: transparent;
+  border: none;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+.settings-tab[aria-selected="true"] {
+  background: var(--c-card);
+  color: var(--c-text);
+  box-shadow: var(--shadow-sm);
+}
+.settings-panel { min-height: 320px; }
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  border: 2px solid var(--c-border);
+  background: var(--c-card);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--c-text);
+  transition: border-color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.theme-card:hover { border-color: var(--c-primary); transform: translateY(-1px); }
+.theme-card[aria-pressed="true"] {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px var(--c-active-bg);
+}
+.theme-swatch {
+  height: 64px;
+  border-radius: var(--r-sm);
+  display: flex;
+  overflow: hidden;
+}
+.theme-swatch span { flex: 1; }
+.theme-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.theme-card-type {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--c-subtle);
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.theme-card-desc { font-size: 12px; color: var(--c-text-muted); margin: 0; }
+
+.doku-content { font-size: 14px; line-height: 1.55; color: var(--c-text); }
+.doku-content h3 { margin: 18px 0 6px; }
+.doku-content h3:first-child { margin-top: 4px; }
+.doku-content p { margin: 0 0 10px; }
+.doku-content ul { margin: 0 0 10px; padding-left: 18px; }
+.doku-content li { margin: 0 0 4px; }
+.doku-content kbd {
+  background: var(--c-subtle);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* === High-contrast fallback === */
@@ -2031,6 +2297,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     actions.push(
       h('button', {
         class: 'btn btn-ghost no-print',
+        'aria-label': 'Einstellungen öffnen',
+        onclick: () => openSettingsModal()
+      }, [icon('gear'), h('span', { class: 'btn-label', text: 'Einstellungen' })]),
+      h('button', {
+        class: 'btn btn-ghost no-print',
         'aria-label': 'Abmelden',
         onclick: logout
       }, [icon('right-from-bracket'), h('span', { class: 'btn-label', text: 'Logout' })])
@@ -2853,7 +3124,246 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     setTimeout(() => location.reload(), 400);
   }
 
+  // -----------------------------------------------------------------
+  // 19b. Themes & Settings (gear FAB + Doku + Theme-Picker).
+  //      Themes are CSS-variable overrides via [data-theme="..."] on
+  //      <html>. Default + 5 Streber Danube ports. Persisted in
+  //      localStorage so the choice survives reloads. Available before
+  //      login — the gear button is mounted directly on <body>.
+  // -----------------------------------------------------------------
+  const THEME_STORAGE_KEY = 'minis.theme';
+  const DEFAULT_THEME_ID = 'default';
+  const THEMES = Object.freeze([
+    {
+      id: 'default',
+      label: 'Minis Wett (Standard)',
+      type: 'light',
+      description: 'Helles Standardthema in Pfarrei-Blau.',
+      themeColor: '#0066cc',
+      swatch: ['#0066cc', '#3a86ff', '#f2f5f8', '#1d3557']
+    },
+    {
+      id: 'streber-light',
+      label: 'Streber Light',
+      type: 'light',
+      description: 'Pergament und Olivengrün, ruhig und klassisch.',
+      themeColor: '#5a6e4a',
+      swatch: ['#5a6e4a', '#a8b49b', '#faf6ef', '#3a322a']
+    },
+    {
+      id: 'streber-light-danube',
+      label: 'Streber Light Danube',
+      type: 'light',
+      description: 'Pergament mit Indigo, wie ein illuminiertes Manuskript.',
+      themeColor: '#5a7fa8',
+      swatch: ['#5a7fa8', '#c5d2e0', '#f4eee2', '#3a3530']
+    },
+    {
+      id: 'streber-dark',
+      label: 'Streber Dark',
+      type: 'dark',
+      description: 'Tiefer Waldgrün auf Anthrazit, monastisch ruhig.',
+      themeColor: '#5a8f6a',
+      swatch: ['#5a8f6a', '#355340', '#0d110d', '#d8e5d8']
+    },
+    {
+      id: 'streber-blue-danube',
+      label: 'Streber Blue Danube',
+      type: 'dark',
+      description: 'Tiefes Marineblau mit warmem Gold — byzantinisch.',
+      themeColor: '#5e95df',
+      swatch: ['#5e95df', '#ddb86e', '#0b1322', '#dbe7f8']
+    },
+    {
+      id: 'streber-smoked-gold',
+      label: 'Streber Smoked Gold',
+      type: 'dark',
+      description: 'Weihrauchbraun und liturgisches Gold — perfekt für die Pfarrei.',
+      themeColor: '#ba934e',
+      swatch: ['#ba934e', '#e0ba6b', '#14110d', '#e8dfca']
+    }
+  ]);
+
+  function getTheme(id) {
+    return THEMES.find(t => t.id === id) || THEMES[0];
+  }
+  function readSavedTheme() {
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved && THEMES.some(t => t.id === saved)) return saved;
+    } catch (_) { /* localStorage disabled */ }
+    return DEFAULT_THEME_ID;
+  }
+  function applyTheme(id) {
+    const theme = getTheme(id);
+    if (theme.id === DEFAULT_THEME_ID) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme.id);
+    }
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme.themeColor);
+    try { localStorage.setItem(THEME_STORAGE_KEY, theme.id); } catch (_) {}
+    state.theme = theme.id;
+  }
+
+  function ensureSettingsFab() {
+    if (document.getElementById('settings-fab')) return;
+    const btn = h('button', {
+      id: 'settings-fab',
+      class: 'settings-fab no-print',
+      type: 'button',
+      'aria-label': 'Einstellungen öffnen',
+      onclick: openSettingsModal
+    }, [icon('gear')]);
+    document.body.appendChild(btn);
+  }
+
+  let settingsModalOpen = false;
+  function openSettingsModal(initialTab) {
+    if (settingsModalOpen) return;
+    settingsModalOpen = true;
+
+    const tabs = [
+      { id: 'themes', label: 'Themes', icon: 'palette' },
+      { id: 'doku',   label: 'Dokumentation', icon: 'book-open' }
+    ];
+    let activeTab = (initialTab && tabs.some(t => t.id === initialTab)) ? initialTab : 'themes';
+
+    const tabBar = h('div', { class: 'settings-tabs', role: 'tablist' });
+    const panel = h('div', { class: 'settings-panel', role: 'tabpanel' });
+
+    function renderPanel() {
+      panel.replaceChildren();
+      if (activeTab === 'themes') panel.appendChild(renderThemesPanel());
+      else if (activeTab === 'doku') panel.appendChild(renderDokuPanel());
+    }
+    function renderTabs() {
+      tabBar.replaceChildren();
+      for (const t of tabs) {
+        const isActive = t.id === activeTab;
+        const tabBtn = h('button', {
+          class: 'settings-tab',
+          type: 'button',
+          role: 'tab',
+          'aria-selected': isActive ? 'true' : 'false',
+          onclick: () => { activeTab = t.id; renderTabs(); renderPanel(); }
+        }, [icon(t.icon), t.label]);
+        tabBar.appendChild(tabBtn);
+      }
+    }
+    renderTabs();
+    renderPanel();
+
+    openModal({
+      title: 'Einstellungen',
+      subtitle: 'Themes wählen oder die Dokumentation lesen.',
+      content: [tabBar, panel],
+      actions: [],
+      onClose: () => { settingsModalOpen = false; }
+    });
+  }
+
+  function renderThemesPanel() {
+    const wrap = h('div', { class: 'stack' });
+    wrap.appendChild(h('p', {
+      class: 'text-muted mb-0',
+      style: { marginBottom: '12px' },
+      text: 'Klicke auf ein Thema, um die Optik sofort umzuschalten. Deine Wahl bleibt für die nächsten Besuche gespeichert.'
+    }));
+    const grid = h('div', { class: 'theme-grid' });
+    const current = state.theme || readSavedTheme();
+    for (const t of THEMES) {
+      const card = h('button', {
+        class: 'theme-card',
+        type: 'button',
+        'aria-pressed': t.id === current ? 'true' : 'false',
+        onclick: () => {
+          applyTheme(t.id);
+          // Update aria-pressed across siblings without re-rendering the modal.
+          for (const sib of grid.querySelectorAll('.theme-card')) sib.setAttribute('aria-pressed', 'false');
+          card.setAttribute('aria-pressed', 'true');
+          toast('Thema „' + t.label + '" aktiviert.', 'success');
+        }
+      });
+      const swatch = h('div', { class: 'theme-swatch', 'aria-hidden': 'true' });
+      for (const c of t.swatch) swatch.appendChild(h('span', { style: { background: c } }));
+      card.appendChild(swatch);
+      const titleRow = h('div', { class: 'theme-card-title' }, [
+        h('span', { text: t.label }),
+        h('span', { class: 'theme-card-type', text: t.type === 'dark' ? 'Dunkel' : 'Hell' })
+      ]);
+      card.appendChild(titleRow);
+      card.appendChild(h('p', { class: 'theme-card-desc', text: t.description }));
+      grid.appendChild(card);
+    }
+    wrap.appendChild(grid);
+    return wrap;
+  }
+
+  function renderDokuPanel() {
+    // Plain-text content kept inline so we never inject HTML from anywhere.
+    // Each section is a {h, body[]} record. Body strings render as <p>;
+    // arrays render as <ul>/<li>.
+    const sections = [
+      { h: 'Was ist Minis Wettstetten?', body: [
+        'Eine kleine Web-App, mit der die Ministrantinnen und Ministranten der Pfarrei Wettstetten ihren Dienstplan, kurze Nachrichten und ihre eigene Statistik im Blick behalten. Du kannst sie als App auf dem Handy installieren oder einfach im Browser nutzen.'
+      ]},
+      { h: 'Anmelden', body: [
+        'Tippe deinen Benutzernamen und dein Passwort ein und drücke „Anmelden". Wenn du dein Passwort noch nicht geändert hast, wirst du beim ersten Login dazu aufgefordert.',
+        'Hast du dein Passwort vergessen? Frag deinen Obermini oder den Entwickler — sie können es zurücksetzen.'
+      ]},
+      { h: 'Rollen', body: [
+        ['Ministrant: sieht Dienstpläne, kann sich ein- und austragen, lesen und chatten.',
+         'Obermini: plant Dienste, sieht Statistik und kann Ersatzsuchen anstoßen.',
+         'Entwickler: legt Konten an, macht Backups und konfiguriert das Backend.']
+      ]},
+      { h: 'Dienste', body: [
+        'Auf der Startseite siehst du alle kommenden Dienste. Tippe einen an, um dich einzutragen oder auszutragen. Die Abmeldefrist steht im Dienst — danach geht das Austragen nur noch über deinen Obermini.'
+      ]},
+      { h: 'Chat', body: [
+        'Im Chat siehst du die letzten 40 Nachrichten. Schreib bitte freundlich und kurz. Systemmeldungen (z. B. „Sonntagsmesse braucht noch jemanden") erscheinen rot umrandet.'
+      ]},
+      { h: 'Profil & Passwort', body: [
+        'Im Profil kannst du deinen Anzeigenamen ändern (so erscheinst du im Chat) und jederzeit dein Passwort wechseln. Mindestlänge: 8 Zeichen.'
+      ]},
+      { h: 'Themes', body: [
+        'Im Tab „Themes" findest du sechs Designs: das Standard-Hellblau und fünf Streber-Themes (Light, Light Danube, Dark, Blue Danube, Smoked Gold). Wähle, was dir am besten gefällt — die App merkt sich das.'
+      ]},
+      { h: 'App installieren', body: [
+        'Auf dem Handy: Browser-Menü öffnen → „Zum Startbildschirm hinzufügen". Auf dem Computer: in Chrome oder Edge erscheint rechts in der Adressleiste ein Installations-Symbol. Danach läuft die App wie eine richtige App, auch offline (Anzeige zuletzt synchronisierter Daten).'
+      ]},
+      { h: 'Tastenkürzel', body: [
+        ['Esc: schließt einen Dialog.',
+         'Tab: springt zum nächsten Bedienelement (gut für Tastatur-Nutzer).',
+         'Cmd/Strg + P: Druckansicht (z. B. für die Statistik).']
+      ]},
+      { h: 'Sicherheit & Datenschutz', body: [
+        'Passwörter werden niemals im Klartext gespeichert. Daten gehen nur über eine geschützte Verbindung. Im Browser stehen keine Datenbank-Geheimnisse — alles läuft über das Vercel-Gateway. Wenn etwas seltsam aussieht, melde dich beim Entwickler.'
+      ]}
+    ];
+    const wrap = h('div', { class: 'doku-content' });
+    for (const sec of sections) {
+      wrap.appendChild(h('h3', { text: sec.h }));
+      for (const b of sec.body) {
+        if (Array.isArray(b)) {
+          const ul = h('ul');
+          for (const li of b) ul.appendChild(h('li', { text: li }));
+          wrap.appendChild(ul);
+        } else {
+          wrap.appendChild(h('p', { text: b }));
+        }
+      }
+    }
+    return wrap;
+  }
+
   async function boot() {
+    // Theme: apply saved choice immediately so the first paint already
+    // renders in the user's preferred palette. Mount the gear button
+    // before the first renderApp() so it is visible even on the login.
+    applyTheme(readSavedTheme());
+    ensureSettingsFab();
     // Erste Ansicht sofort rendern (noch ohne Backend).
     renderApp();
     try {
