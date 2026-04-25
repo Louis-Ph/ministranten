@@ -77,6 +77,36 @@ test.describe('Navigation + admin flow', () => {
     await expect(page.getByLabel(/Nachricht eingeben/i)).toHaveValue('');
     await expect(page.locator('.chat-msg .body').last()).toContainText('[TEST QA] lange Nachricht');
   });
+
+  test('incoming message does not steal focus from a half-typed reply', async ({ page }) => {
+    /* Regression: state.chatMessages mutations used to trigger a full
+       renderApp(), which destroyed <input id="chat-input"> together
+       with whatever the user was in the middle of typing. */
+    await loginAsDev(page);
+    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    const input = page.locator('#chat-input');
+    await input.click();
+    await input.fill('Hallo wie ge');
+    // Push a foreign message straight into state, the way subscribeChat
+    // would when another user posts something.
+    await page.evaluate(() => {
+      const s = window.__MinisTest.state;
+      s.chatMessages = s.chatMessages.concat([{
+        id: 'foreign-test', uid: 'someone-else', username: 'tester',
+        displayName: 'Tester', text: 'Hallo zurück!', ts: Date.now(), system: false
+      }]);
+    });
+    // Focus and value both survive: the user can finish typing.
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue('Hallo wie ge');
+    // The foreign message also rendered, just without nuking the input.
+    await expect(page.locator('.chat-msg .body').filter({ hasText: 'Hallo zurück!' })).toBeVisible();
+    // User finishes typing and sends — the value was never lost.
+    await input.fill('Hallo wie geht es dir?');
+    await page.getByRole('button', { name: /Senden/i }).click();
+    await expect(input).toHaveValue('');
+    await expect(page.locator('.chat-msg .body').filter({ hasText: 'Hallo wie geht es dir?' })).toBeVisible();
+  });
 });
 
 test.describe('Mobile app shell', () => {

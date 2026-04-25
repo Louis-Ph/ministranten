@@ -2533,11 +2533,11 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       h('span', { class: 'text-muted', text: 'letzte ' + CHAT_LIMIT + ' Nachrichten' })
     ]));
     const list = h('div', { class: 'chat-list', id: 'chat-list', role: 'log', 'aria-live': 'polite', 'aria-relevant': 'additions' });
-    for (const m of state.chatMessages) list.appendChild(renderChatMessage(m));
+    fillChatList(list);
     section.appendChild(list);
     setTimeout(() => { list.scrollTop = list.scrollHeight; }, 0);
 
-    const input = h('input', { class: 'input', 'aria-label': 'Nachricht eingeben', placeholder: 'Nachricht…', maxlength: String(CHAT_MESSAGE_MAX_LENGTH) });
+    const input = h('input', { class: 'input', id: 'chat-input', 'aria-label': 'Nachricht eingeben', placeholder: 'Nachricht…', maxlength: String(CHAT_MESSAGE_MAX_LENGTH) });
     const btn = h('button', { class: 'btn btn-primary', 'aria-label': 'Senden' }, [icon('paper-plane'), 'Senden']);
     const send = async () => {
       const t = input.value; if (!t.trim()) return;
@@ -2553,6 +2553,27 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       onsubmit: (e) => { e.preventDefault(); send(); }
     }, [input, btn]));
     return section;
+  }
+
+  function fillChatList(listEl) {
+    listEl.replaceChildren();
+    for (const m of state.chatMessages) listEl.appendChild(renderChatMessage(m));
+  }
+
+  /* In-place patch for incoming chat updates. The full renderApp() path
+     would destroy the <input id="chat-input">, taking the user's focus
+     and any half-typed message with it — which made it impossible to
+     write while a conversation was active. Here we only rebuild the
+     message list. The form (input + Senden button) stays untouched. */
+  function patchChatList() {
+    const list = document.getElementById('chat-list');
+    if (!list) return false;
+    // Preserve the user's scroll position when they have scrolled up to
+    // read history; only auto-scroll if they were already near the bottom.
+    const nearBottom = (list.scrollHeight - list.scrollTop - list.clientHeight) < 80;
+    fillChatList(list);
+    if (nearBottom) list.scrollTop = list.scrollHeight;
+    return true;
   }
 
   function renderChatMessage(m) {
@@ -3064,7 +3085,17 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   // 17. Reactivity – re-render on any state change
   // -----------------------------------------------------------------
   on('state', (evt) => {
-    if (['view','user','services','chatMessages','stats','users','privateUsers','installAvailable','booted'].indexOf(evt.key) !== -1) {
+    /* Chat messages are the one piece of state that should NOT trigger a
+       full renderApp(). Doing so destroys the <input id="chat-input">
+       every time a message arrives or is sent, which makes it impossible
+       to type while the conversation is active. Patch the list in place
+       and bail before the generic re-render path runs. When we are not on
+       the chat view there is no chat UI to update at all. */
+    if (evt.key === 'chatMessages') {
+      if (state.view === VIEWS.CHAT) patchChatList();
+      return;
+    }
+    if (['view','user','services','stats','users','privateUsers','installAvailable','booted'].indexOf(evt.key) !== -1) {
       renderApp();
     }
   });
