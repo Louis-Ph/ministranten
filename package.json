@@ -12,7 +12,8 @@
     "dienstplan",
     "wcag",
     "accessibility",
-    "single-file"
+    "single-file",
+    "nx"
   ],
   "author": "Minis Wettstetten",
   "license": "MIT",
@@ -29,20 +30,33 @@
     "npm": ">=10"
   },
   "scripts": {
-    "dev": "http-server -p 8080 -c-1 -s .",
+    "dev": "nx dev web",
+    "dev:api": "nx dev api",
+    "build": "nx run-many --target=build --all",
+    "build:web": "nx build web",
+    "build:api": "nx build api",
+    "test": "nx run-many --target=test --all",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "nx test:e2e web",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:install": "playwright install chromium",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run test:unit && npm run test:e2e"
+    "typecheck": "nx run-many --target=typecheck --all",
+    "lint": "nx run-many --target=lint --all",
+    "nx": "nx"
   },
   "devDependencies": {
+    "@nx/eslint": "^22.7.0",
+    "@nx/eslint-plugin": "^22.7.0",
+    "@nx/js": "^22.7.0",
+    "@nx/playwright": "^22.7.0",
+    "@nx/vite": "^22.7.0",
+    "@nx/web": "^22.7.0",
     "@playwright/test": "^1.47.0",
     "@types/node": "^25.6.0",
     "happy-dom": "^20.9.0",
     "http-server": "^14.1.1",
+    "nx": "^22.7.0",
     "typescript": "^6.0.3",
     "vitest": "^2.1.0"
   }
