@@ -2071,11 +2071,7 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
       h('div', { class: 'field' }, [h('label', { text: 'Benutzername' }), username]),
       h('div', { class: 'field' }, [h('label', { text: 'Passwort' }), password]),
       h('div', { class: 'login-actions' }, [
-        h('button', { class: 'btn btn-primary btn-block', type: 'submit' }, [icon('right-to-bracket'), 'Ministranten Login']),
-        h('button', {
-          class: 'btn btn-danger btn-block', type: 'button',
-          onclick: () => submit(ROLES.ADMIN)
-        }, [icon('shield-halved'), 'Oberminis Login'])
+        h('button', { class: 'btn btn-primary btn-block', type: 'submit' }, [icon('right-to-bracket'), 'Anmelden'])
       ]),
       h('div', { class: 'dev-slot' }, [
         h('button', {

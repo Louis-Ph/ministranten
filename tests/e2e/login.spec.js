@@ -9,8 +9,7 @@ test.describe('Login screen', () => {
     await expect(page.getByRole('heading', { name: 'Minis Wettstetten' })).toBeVisible();
     await expect(page.getByLabel('Benutzername')).toBeVisible();
     await expect(page.getByLabel('Passwort')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Ministranten Login/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Oberminis Login/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Anmelden$/ })).toBeVisible();
     await expect(page.getByRole('button', { name: /Entwickler Zugang/i })).toBeVisible();
   });
 

@@ -6,11 +6,11 @@ const DEMO = {
   entwickler: { username: 'entwickler', password: 'entwickler1234' }
 };
 
-async function login(page, account, buttonName = 'Ministranten Login') {
+async function login(page, account) {
   await page.goto('/index.html?mock=1');
   await page.getByLabel('Benutzername').fill(account.username);
   await page.getByLabel('Passwort').fill(account.password);
-  await page.getByRole('button', { name: buttonName }).click();
+  await page.getByRole('button', { name: /^Anmelden$/ }).click();
   await expect(page.getByRole('heading', { name: /Kommende Gottesdienste/i })).toBeVisible();
 }
 
@@ -31,7 +31,7 @@ test.describe('Role-based access', () => {
   });
 
   test('Obermini sees admin functionality but not developer tools', async ({ page }) => {
-    await login(page, DEMO.obermini, 'Oberminis Login');
+    await login(page, DEMO.obermini);
 
     await expect(page.getByRole('button', { name: 'Statistik', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Admin', exact: true })).toBeVisible();
@@ -45,7 +45,7 @@ test.describe('Role-based access', () => {
   });
 
   test('Entwickler sees developer tools and local demo accounts', async ({ page }) => {
-    await login(page, DEMO.entwickler, 'Oberminis Login');
+    await login(page, DEMO.entwickler);
 
     await expect(page.getByRole('button', { name: 'Dev', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Dev', exact: true }).click();
@@ -55,13 +55,10 @@ test.describe('Role-based access', () => {
     await expect(page.getByText('Demo Entwickler', { exact: true })).toBeVisible();
   });
 
-  test('Oberminis Login rejects a plain Ministrant account', async ({ page }) => {
-    await page.goto('/index.html?mock=1');
-    await page.getByLabel('Benutzername').fill(DEMO.mini.username);
-    await page.getByLabel('Passwort').fill(DEMO.mini.password);
-    await page.getByRole('button', { name: 'Oberminis Login' }).click();
-
-    await expect(page.getByText(/nur für Oberminis und Entwickler/i)).toBeVisible();
-    await expect(page.getByLabel('Benutzername')).toBeVisible();
+  test('Mini account does not see admin or developer nav items', async ({ page }) => {
+    await login(page, DEMO.mini);
+    await expect(page.getByRole('button', { name: 'Admin', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Dev', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Statistik', exact: true })).toHaveCount(0);
   });
 });
