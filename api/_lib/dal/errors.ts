@@ -20,6 +20,12 @@ export type ErrorCode =
   | 'not_found'
   | 'username_taken'
   | 'method_not_allowed'
+  // 4xx — auth-domain (preserved from legacy handlers for front-end compat)
+  | 'invalid_login'
+  | 'refresh_failed'
+  | 'pkce_exchange_failed'
+  | 'weak_password'
+  | 'password_update_failed'
   // 5xx — infra
   | 'cloud_not_configured'
   | 'schema_not_installed'
