@@ -8,9 +8,14 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "echo 'Web app - no build step required (static files)'"
+        "commands": [
+          "mkdir -p dist/web",
+          "cp index.html sw.js manifest.webmanifest dist/web/",
+          "cp icon* dist/web/ || true"
+        ],
+        "parallel": false
       },
-      "outputs": ["{projectRoot}/dist"]
+      "outputs": ["{workspaceRoot}/dist/web"]
     },
     "dev": {
       "executor": "nx:run-commands",
