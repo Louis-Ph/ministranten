@@ -1,10 +1,10 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    environment: 'happy-dom',
+    environment: "happy-dom",
     globals: false,
-    include: ['tests/unit/**/*.test.js'],
-    reporters: 'default'
-  }
+    include: ["tests/unit/**/*.test.js"],
+    reporters: "default",
+  },
 });
