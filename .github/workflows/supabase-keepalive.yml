@@ -22,23 +22,22 @@ concurrency:
 
 jobs:
   ping:
-    name: Ping Supabase REST
+    name: Ping Supabase auth settings
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
       SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://uvsgzvzttsohcmsnfgla.supabase.co' }}
       SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_tIgL-ThuxWBDOcwrf6kXYQ_0_OPWmcs' }}
     steps:
-      - name: Query app_roles (counts as activity)
+      - name: Ping /auth/v1/settings (always 200, counts as activity)
         run: |
           set -euo pipefail
           status=$(curl -sS -o /tmp/body -w "%{http_code}" \
             -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
             -H "Accept: application/json" \
-            "${SUPABASE_URL}/rest/v1/app_roles?select=role_id&limit=1")
+            "${SUPABASE_URL}/auth/v1/settings")
           echo "HTTP ${status}"
-          cat /tmp/body
+          head -c 200 /tmp/body
           echo
           if [ "${status}" != "200" ]; then
             echo "::error::Supabase keepalive ping failed (HTTP ${status})"
