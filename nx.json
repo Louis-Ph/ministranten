@@ -53,6 +53,5 @@
     "sharedGlobals": []
   },
   "defaultBase": "main",
-  "analytics": true,
-  "nxCloudId": "69ec8cae322eaeaeb15fa0a0"
+  "analytics": true
 }
