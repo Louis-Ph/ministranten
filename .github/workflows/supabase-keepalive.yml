@@ -1,0 +1,46 @@
+name: Supabase Keepalive
+
+# Free-tier Supabase projects auto-pause after 7 days of inactivity.
+# This workflow pings the project once a day so it stays active.
+#
+# The URL + publishable key below are already public (committed in
+# .env.example) so hardcoding here is fine. If you ever rotate keys,
+# move them to repo secrets / variables.
+
+on:
+  schedule:
+    # Daily at 06:17 UTC (off-peak, avoids the busy top of the hour).
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping Supabase REST
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://uvsgzvzttsohcmsnfgla.supabase.co' }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_tIgL-ThuxWBDOcwrf6kXYQ_0_OPWmcs' }}
+    steps:
+      - name: Query app_roles (counts as activity)
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/body -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_PUBLISHABLE_KEY}" \
+            -H "Accept: application/json" \
+            "${SUPABASE_URL}/rest/v1/app_roles?select=role_id&limit=1")
+          echo "HTTP ${status}"
+          cat /tmp/body
+          echo
+          if [ "${status}" != "200" ]; then
+            echo "::error::Supabase keepalive ping failed (HTTP ${status})"
+            exit 1
+          fi
