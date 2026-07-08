@@ -1,11 +1,10 @@
 name: Supabase Keepalive
 
-# Free-tier Supabase projects auto-pause after 7 days of inactivity.
-# This workflow pings the project once a day so it stays active.
-#
-# The URL + publishable key below are already public (committed in
-# .env.example) so hardcoding here is fine. If you ever rotate keys,
-# move them to repo secrets / variables.
+# Free-tier Supabase projects auto-pause after ~7 days of *database* inactivity.
+# A plain auth ping (/auth/v1/settings) never touches Postgres, so the project
+# paused despite the keepalive. Instead we hit the app's /api/health endpoint,
+# which runs a real 1-row SELECT through the DAL — genuine DB activity that
+# resets the auto-pause timer.
 
 on:
   schedule:
@@ -22,20 +21,18 @@ concurrency:
 
 jobs:
   ping:
-    name: Ping Supabase auth settings
+    name: Ping app health endpoint (real DB query)
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://uvsgzvzttsohcmsnfgla.supabase.co' }}
-      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_tIgL-ThuxWBDOcwrf6kXYQ_0_OPWmcs' }}
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://ministranten-wett.vercel.app/api/health' }}
     steps:
-      - name: Ping /auth/v1/settings (always 200, counts as activity)
+      - name: Ping /api/health (real SELECT via the DAL)
         run: |
           set -euo pipefail
-          status=$(curl -sS -o /tmp/body -w "%{http_code}" \
-            -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+          status=$(curl -sS --retry 2 --retry-delay 5 -o /tmp/body -w "%{http_code}" \
             -H "Accept: application/json" \
-            "${SUPABASE_URL}/auth/v1/settings")
+            "${HEALTH_URL}")
           echo "HTTP ${status}"
           head -c 200 /tmp/body
           echo
