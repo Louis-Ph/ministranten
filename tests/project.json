@@ -19,7 +19,8 @@
       "executor": "@nx/playwright:playwright",
       "dependsOn": ["^build"],
       "options": {
-        "configPath": "../playwright.config.js"
+        "config": "playwright.config.js",
+        "skipInstall": true
       },
       "outputs": ["{workspaceRoot}/playwright-report"]
     }

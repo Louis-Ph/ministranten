@@ -1,0 +1,16 @@
+# Deploy source only; local credentials, tool state and reports stay on disk.
+.env*
+.vercel/
+.nx/
+.gstack/
+.playwright-mcp/
+.agents/
+.codex/
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.DS_Store
+scripts/db/_*.sh

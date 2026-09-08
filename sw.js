@@ -9,13 +9,24 @@
 
 'use strict';
 
-const CACHE = 'minis-wettstetten-v2';
+const CACHE_PREFIX = 'minis-wettstetten-';
+const CACHE = CACHE_PREFIX + 'v3';
 const PRECACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png'
 ];
+const PUBLIC_PATHS = new Set(
+  [...PRECACHE, './index'].map((path) => new URL(path, self.registration.scope).pathname)
+);
+const API_PATH = /(?:^|\/)api(?:\/|$)/;
+const PRIVATE_CACHE_CONTROL = /(?:^|,)\s*(?:private|no-store|no-cache)(?:\s|,|=|$)/i;
+const PRIVATE_VARY = /(?:^|,)\s*(?:authorization|cookie|\*)(?:\s|,|$)/i;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -27,7 +38,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(Promise.all([
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith(CACHE_PREFIX) && k !== CACHE).map((k) => caches.delete(k)))
     ),
     self.clients.claim()
   ]));
@@ -38,22 +49,29 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-  // Cloud API & sql.js CDN werden nicht gecached, um Live-Daten nicht zu blockieren.
-  if (/supabase\.co|cdnjs\.cloudflare\.com/.test(req.url)) return;
+  // Nur bekannte öffentliche App-Dateien; API- und Auth-Anfragen bleiben live.
+  if (url.origin !== self.location.origin || API_PATH.test(url.pathname)) return;
+  if (req.headers.has('authorization') || req.headers.has('cookie') || req.headers.has('range')) return;
+  if (!PUBLIC_PATHS.has(url.pathname)) return;
 
   event.respondWith((async () => {
     try {
       const fresh = await fetch(req);
-      try {
-        const cache = await caches.open(CACHE);
-        cache.put(req, fresh.clone());
-      } catch (_) { /* ignore */ }
+      if (fresh.ok && !fresh.redirected && !url.search &&
+          !PRIVATE_CACHE_CONTROL.test(fresh.headers.get('cache-control') || '') &&
+          !PRIVATE_VARY.test(fresh.headers.get('vary') || '')) {
+        try {
+          const cache = await caches.open(CACHE);
+          await cache.put(req, fresh.clone());
+        } catch (_) { /* Speicherfehler dürfen die Online-App nicht blockieren. */ }
+      }
       return fresh;
     } catch (_) {
-      const cached = await caches.match(req);
+      const cache = await caches.open(CACHE);
+      const cached = await cache.match(req);
       if (cached) return cached;
       if (req.mode === 'navigate') {
-        const fallback = await caches.match('./');
+        const fallback = await cache.match('./');
         if (fallback) return fallback;
       }
       return new Response('Offline', { status: 503, statusText: 'Offline' });

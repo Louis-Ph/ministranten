@@ -6,20 +6,16 @@
   "sourceRoot": "api",
   "targets": {
     "build": {
-      "executor": "@nx/js:tsc",
+      "executor": "nx:run-commands",
       "options": {
-        "outputPath": "dist/api",
-        "main": "index.ts",
-        "tsConfig": "tsconfig.json",
-        "assets": []
+        "command": "tsc -p api/tsconfig.build.json"
       },
-      "outputs": ["{options.outputPath}"]
+      "outputs": ["{workspaceRoot}/dist/api"]
     },
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npx vercel dev --force",
-        "cwd": ".."
+        "command": "npx vercel dev"
       }
     },
     "typecheck": {

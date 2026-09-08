@@ -37,6 +37,8 @@ export interface SupabaseClient {
 }
 
 export interface RestClient {
+  /** Read the role-filtered OpenAPI catalog; never invokes a function. */
+  describe(): Promise<{ paths: Record<string, { post?: unknown }> }>;
   select<T>(table: string, query: string, options?: { correlationId?: string }): Promise<T[]>;
   insert<T = unknown>(table: string, rows: T | T[], options?: BaseRestOptions): Promise<void>;
   upsert<T = unknown>(table: string, rows: T | T[], options?: BaseRestOptions & { onConflict: string }): Promise<void>;
@@ -124,6 +126,20 @@ function build(): SupabaseClient {
 
 function buildRest(): RestClient {
   return {
+    async describe() {
+      assertReady();
+      const res = await httpRequestOk({
+        method: 'GET',
+        url: getConfig().supabaseUrl + '/rest/v1/',
+        headers: { ...serviceHeaders(), Accept: 'application/openapi+json' }
+      });
+      const spec = res.json as { paths?: Record<string, { post?: unknown }> } | null;
+      if (!spec || !spec.paths || typeof spec.paths !== 'object' || Array.isArray(spec.paths)) {
+        throw new AppError(502, 'Catalogue PostgREST invalide.', 'supabase_error');
+      }
+      return { paths: spec.paths };
+    },
+
     async select<T>(table: string, query: string, options): Promise<T[]> {
       assertReady();
       const cfg = getConfig();
@@ -329,13 +345,16 @@ function buildAuth(): AuthClient {
     async getSettings() {
       assertReady();
       const cfg = getConfig();
-      const res = await httpRequest({
+      const res = await httpRequestOk({
         method: 'GET',
         url: cfg.supabaseUrl + '/auth/v1/settings',
         headers: { apikey: cfg.publishableKey }
       });
-      if (res.status !== 200) return {} as SupabaseAuthSettings;
-      return (res.json as SupabaseAuthSettings) || {};
+      const settings = res.json as SupabaseAuthSettings | null;
+      if (res.status !== 200 || !settings || !settings.external || typeof settings.external !== 'object' || Array.isArray(settings.external)) {
+        throw new AppError(502, 'Configuration Auth invalide.', 'supabase_error');
+      }
+      return settings;
     }
   };
 }

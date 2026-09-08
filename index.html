@@ -1444,76 +1444,14 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
   }
 
   // -----------------------------------------------------------------
-  // 2. Service Worker (Blob URL) – Network-first caching + push handler
+  // 2. Service Worker – öffentliche App-Dateien offline + Push
   // -----------------------------------------------------------------
-  const swCode = `
-    const CACHE = 'minis-wettstetten-v2';
-    const PRECACHE = ['/', location.href];
-
-    self.addEventListener('install', (e) => {
-      self.skipWaiting();
-      e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE).catch(() => {})));
-    });
-    self.addEventListener('activate', (e) => {
-      e.waitUntil(Promise.all([
-        caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
-        self.clients.claim()
-      ]));
-    });
-    self.addEventListener('fetch', (e) => {
-      const req = e.request;
-      if (req.method !== 'GET') return;
-      const url = new URL(req.url);
-      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
-      if (/supabase\\.co|cdnjs\\.cloudflare\\.com/.test(req.url)) return; // Let external live traffic handle itself
-      e.respondWith((async () => {
-        try {
-          const fresh = await fetch(req);
-          try { const c = await caches.open(CACHE); c.put(req, fresh.clone()); } catch (_) {}
-          return fresh;
-        } catch (_) {
-          const cached = await caches.match(req);
-          if (cached) return cached;
-          if (req.mode === 'navigate') {
-            const fallback = await caches.match('/');
-            if (fallback) return fallback;
-          }
-          return new Response('Offline', { status: 503, statusText: 'Offline' });
-        }
-      })());
-    });
-    self.addEventListener('push', (e) => {
-      let data = { title: 'Minis Wettstetten', body: 'Neue Nachricht.' };
-      try { if (e.data) data = Object.assign(data, e.data.json()); } catch (_) {}
-      e.waitUntil(self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: data.icon,
-        badge: data.badge,
-        tag: data.tag || 'minis',
-        data: data.data || {}
-      }));
-    });
-    self.addEventListener('notificationclick', (e) => {
-      e.notification.close();
-      e.waitUntil(self.clients.matchAll({ type: 'window' }).then(list => {
-        for (const c of list) if ('focus' in c) return c.focus();
-        if (self.clients.openWindow) return self.clients.openWindow('/');
-      }));
-    });
-  `;
-
   function registerServiceWorker() {
     if (ACTIVE_BACKEND === BACKENDS.MOCK && urlParams.get('mock') === '1') return;
     if (!('serviceWorker' in navigator)) return;
-    // Bevorzugt: echte Datei ./sw.js (nötig für PWA-Installierbarkeit –
-    // Blob-URLs haben einen begrenzten Scope, den Browser ablehnen).
+    // Eine gemeinsame Cache-Strategie in der installierbaren Worker-Datei.
     navigator.serviceWorker.register('./sw.js', { scope: './' }).catch((err) => {
-      console.warn('SW Datei nicht erreichbar, fallback auf Blob.', err);
-      try {
-        const blob = new Blob([swCode], { type: 'text/javascript' });
-        const url = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(url).catch(e => console.warn('SW blob fallback failed', e));
-      } catch (e) { console.warn('SW blob failed', e); }
+      console.warn('Service Worker konnte nicht registriert werden.', err);
     });
   }
 
@@ -1853,10 +1791,9 @@ body.forced-modal-open > .modal-backdrop.forced { filter: none; pointer-events: 
     backdrop.addEventListener('keydown', onKeyDown);
     backdrop.addEventListener('click', onBackdropClick);
 
-    setTimeout(() => {
-      const list = focusables();
-      (list[0] || dialog).focus();
-    }, 0);
+    // Der Dialog ist bereits im DOM: Tastaturereignisse müssen ihn sofort erreichen.
+    const list = focusables();
+    (list[0] || dialog).focus();
 
     rec.close = close;
     return rec;

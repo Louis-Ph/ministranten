@@ -28,7 +28,6 @@ describe('browser security metadata', () => {
 
   it('service workers ignore unsupported request schemes before cache.put', () => {
     expect(sw).toContain("url.protocol !== 'http:' && url.protocol !== 'https:'");
-    expect(indexHtml).toContain("url.protocol !== 'http:' && url.protocol !== 'https:'");
     expect(sw.indexOf('url.protocol')).toBeLessThan(sw.indexOf('cache.put'));
   });
 });

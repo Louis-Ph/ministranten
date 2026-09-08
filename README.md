@@ -68,6 +68,10 @@ APP_ALLOWED_EMAIL_DOMAINS=
 
 Details stehen in [docs/deployment/vercel-supabase.md](./docs/deployment/vercel-supabase.md).
 
+Der Betriebsleitfaden [maintenance.md](./docs/deployment/maintenance.md) beschreibt
+die tägliche Überwachung, Grenzen der Gratisangebote und die Wiederherstellung.
+`npm run ops:check` prüft Website, Datenbank und Supabase Auth ohne Zugangsdaten.
+
 ## Schnellstart
 
 ```bash
@@ -92,8 +96,8 @@ vercel dev
 
 | Schicht | Werkzeug | Anzahl | Schwerpunkt |
 |---------|----------|--------|-------------|
-| Unit | Vitest + happy-dom | 55 | Datumslogik, Businesslogik, DOM-Builder, Rollen, Cloud-Konfiguration, Browser-Sicherheitsmetadata |
-| E2E | Playwright | 26 x 2 Projekte | Login, Dev-Masterkey, Rollen, Benutzeranlage, Navigation, Layout, Druckansicht |
+| Unit | Vitest + happy-dom | 152 | Geschäftslogik, Rollen, Cloud-Bereitschaft, Netzwerkfehler, PWA-Cache und Betriebsüberwachung |
+| E2E | Playwright | 35 x 2 Projekte | Login, Dev-Masterkey, Rollen, Benutzeranlage, Navigation, Layout, Druckansicht, PWA |
 
 ```bash
 npm run test:unit

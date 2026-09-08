@@ -1,5 +1,10 @@
 # Vercel + Supabase Deployment
 
+For the existing production project's verified configuration, daily checks and
+recovery procedure, start with [maintenance.md](./maintenance.md). The setup
+steps below describe provisioning; they are not instructions to recreate an
+already installed database.
+
 ## Target Architecture
 
 - Vercel serves the static PWA and Node.js API routes under `/api/*`.

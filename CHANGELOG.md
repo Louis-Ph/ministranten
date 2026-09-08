@@ -8,6 +8,11 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- Betriebsprüfung umfasst Website, sechs Tabellen, Rollen, RPC-Katalog und Auth;
+  tägliche Überwachung prüft Antwortinhalte mit begrenzten Wartezeiten.
+- Entwicklungsabhängigkeiten und GitHub Actions aktualisiert; CI prüft Typen,
+  echte API-Kompilierung sowie Desktop- und Mobilabläufe.
+
 - Produktivarchitektur auf Vercel API Routes + Supabase Postgres/Auth
   umgestellt.
 - Cloud-Zugangsdaten aus dem Browser entfernt; Runtime-Secrets liegen nur noch
@@ -26,6 +31,13 @@ und die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Unit-Tests für Cloud-Konfiguration, Vercel-Headers und RLS-Schema.
 
 ### Behoben
+
+- Automatische Wiederholungen verändern keine Daten mehr doppelt nach
+  unterbrochenen Schreibantworten; nur lesende GET-Anfragen werden wiederholt.
+- Service Worker speichert ausschließlich öffentliche App-Dateien; API- und
+  Auth-Antworten bleiben aus dem Offline-Cache ausgeschlossen.
+- Fehlgeschlagene Supabase-Auth-Antworten werden als nicht erreichbar erkannt.
+- API-Build und Playwright-Konfiguration erzeugen und prüfen reale Ergebnisse.
 
 - Browser-Console-Warnings bei CSP, CDN-SRI und Service-Worker-Caching wurden
   bereinigt.
