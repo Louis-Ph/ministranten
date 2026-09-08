@@ -2,8 +2,8 @@
  * /api/health — Readiness probe.
  *
  * Used by ops dashboards and the front-end to verify the chain
- * Vercel → DAL → Supabase is wired correctly. Fast: hits a single
- * 1-row SELECT on `app_roles` to confirm the schema is in place.
+ * Vercel → DAL → Supabase is wired correctly. Uses bounded table reads,
+ * the read-only RPC catalog and Auth settings; it never writes app data.
  *
  * Response shape preserved from the legacy handler so existing tools
  * keep working.
@@ -24,7 +24,8 @@ export default withHandler<unknown, 'none'>({
         ok: false,
         configured: status.configured,
         missing: status.missing,
-        schema: 'not_checked'
+        schema: status.configured ? 'not_ready' : 'not_checked',
+        code: status.code
       });
       return;
     }

@@ -22,7 +22,6 @@ import { getConfig, isConfigured, missingConfigKeys, type DalConfig, type OauthP
 import * as errors from './errors.js';
 import * as types from './types.js';
 import * as authz from './authz.js';
-import { getSupabase } from './supabase.js';
 import { createLogger, type Logger } from './logger.js';
 
 let cachedDb: Db | null = null;
@@ -97,12 +96,4 @@ export async function loadRootState(): Promise<types.RootState> {
   return root;
 }
 
-/** Smoke check used by `/api/health`. */
-export async function healthCheck(): Promise<{ ok: boolean; configured: boolean; missing: string[] }> {
-  const missing = missingConfigKeys();
-  if (missing.length) return { ok: false, configured: false, missing };
-  // Cheapest possible probe: 1-row select on app_roles (always present after migration 0001).
-  const sb = getSupabase();
-  await sb.rest.select('app_roles', 'select=role_id&limit=1');
-  return { ok: true, configured: true, missing: [] };
-}
+export { healthCheck } from './health.js';

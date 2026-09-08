@@ -11,9 +11,8 @@
  *      `httpTimeoutMs`. Without this, a hung Supabase response keeps the
  *      lambda alive until Vercel's hard cap.
  *
- *   3. Retries. Transient failures (5xx, ECONNRESET, AbortError due to timeout)
- *      retry with exponential backoff up to `httpMaxRetries`. 4xx is never
- *      retried — those are deterministic.
+ *   3. Read retries. Transient GET failures retry with exponential backoff.
+ *      Mutations never retry: a lost response can follow a committed write.
  *
  * The module also installs the dispatcher only once across hot-invocations
  * via a module-level guard.
@@ -66,7 +65,7 @@ export interface HttpRequest {
   readonly body?: string;
   /** Override the default timeout for this single call. */
   readonly timeoutMs?: number;
-  /** Override the default retry count for this single call. */
+  /** Override the retry count for a GET. Mutations always use zero retries. */
   readonly maxRetries?: number;
   /** Marker propagated to logs to correlate retries. */
   readonly correlationId?: string;
@@ -85,12 +84,12 @@ export interface HttpResponse {
  *
  * Throws `AppError` (`upstream_timeout` / `upstream_unavailable`) on transport
  * failures. HTTP 4xx/5xx responses are returned to the caller (which decides
- * whether to translate them) — except that 5xx triggers a retry pass.
+ * whether to translate them); GET 5xx responses may trigger a retry pass.
  */
 export async function httpRequest(req: HttpRequest): Promise<HttpResponse> {
   await ensureDispatcher();
   const cfg = getConfig();
-  const maxRetries = req.maxRetries ?? cfg.httpMaxRetries;
+  const maxRetries = req.method === 'GET' ? (req.maxRetries ?? cfg.httpMaxRetries) : 0;
   const timeoutMs = req.timeoutMs ?? cfg.httpTimeoutMs;
   const correlationId = req.correlationId || cryptoRandomId();
 
@@ -162,7 +161,7 @@ function httpErrorFromResponse(res: HttpResponse, req: HttpRequest): AppError {
   const message = body?.message || body?.details || 'Supabase request failed.';
   const supabaseCode = body?.code || '';
   // Map known PostgREST/Postgres error codes to stable domain codes.
-  if (supabaseCode === 'PGRST205') {
+  if (['PGRST202', 'PGRST204', 'PGRST205', '42703', '42P01'].includes(supabaseCode)) {
     return new AppError(503,
       'Schema Supabase manquant. Execute supabase/schema.sql une fois dans le SQL Editor.',
       'schema_not_installed');

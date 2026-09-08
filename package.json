@@ -44,22 +44,23 @@
     "typecheck": "nx run-many --target=typecheck --all",
     "lint": "nx run-many --target=lint --all",
     "db:migrate": "node scripts/db/migrate.mjs",
+    "ops:check": "node scripts/ops/check-health.mjs",
     "nx": "nx"
   },
   "devDependencies": {
-    "@nx/eslint": "^22.7.0",
-    "@nx/eslint-plugin": "^22.7.0",
-    "@nx/js": "^22.7.0",
-    "@nx/playwright": "^22.7.0",
-    "@nx/vite": "^22.7.0",
-    "@nx/web": "^22.7.0",
+    "@nx/eslint": "^23.2.0",
+    "@nx/eslint-plugin": "^23.2.0",
+    "@nx/js": "^23.2.0",
+    "@nx/playwright": "^23.2.0",
+    "@nx/vite": "^23.2.0",
+    "@nx/web": "^23.2.0",
     "@playwright/test": "^1.47.0",
     "@types/node": "^25.6.0",
     "happy-dom": "^20.9.0",
     "http-server": "^14.1.1",
-    "nx": "^22.7.0",
+    "nx": "^23.2.0",
     "pg": "^8.20.0",
     "typescript": "^6.0.3",
-    "vitest": "^2.1.0"
+    "vitest": "^3.2.7"
   }
 }
