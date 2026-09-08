@@ -1,0 +1,37 @@
+name: Verify Production Deployment
+
+# Vercel's existing Git integration deploys main. Verify the published result
+# without duplicating deployment credentials in GitHub Actions.
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    name: Check published production services
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+
+      - name: Check production services
+        run: node scripts/ops/check-health.mjs

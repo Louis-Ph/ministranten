@@ -41,6 +41,11 @@ Le résultat attendu est trois lignes `PASS` et un code de sortie `0`. Toute lig
 
 Le workflow **Supabase Keepalive** est programmé chaque jour à **06:17 UTC**. Il exige les vrais contenus attendus, limite chaque tentative à 15 secondes et essaie jusqu'à trois fois. Pour le lancer dans Chrome : dépôt GitHub → **Actions → Supabase Keepalive → Run workflow**. Contrôler le résultat et activer les notifications d'échec dans les préférences GitHub du responsable.
 
+L'intégration Git Vercel existante déploie `main`. **Verify Production Deployment**
+contrôle ensuite chaque déploiement Production réussi et peut aussi être lancé
+manuellement. Il remplace l'ancien workflow de déploiement manuel dont les secrets
+GitHub n'étaient pas configurés ; aucun second jeu de clés de déploiement n'est nécessaire.
+
 Le cron GitHub peut être retardé et certaines exécutions peuvent être perdues en période de charge ; vérifier également la date du dernier passage. Dans un dépôt public, GitHub désactive les workflows planifiés après 60 jours sans activité du dépôt. Vérifier leur activation chaque mois ; si nécessaire, ouvrir le workflow dans **Actions**, choisir **Enable workflow**, puis lancer **Run workflow**. [Planification GitHub](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [réactivation d'un workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows).
 
 Supabase Free peut mettre en pause un projet dont l'activité est faible sur sept jours. Nos sondes constituent une surveillance, sans garantie contre cette pause. Lire les avertissements envoyés au propriétaire du projet. Si une disponibilité continue est nécessaire, étudier un plan supprimant la pause pour inactivité avant de prendre un engagement. [Règles de pause Supabase](https://supabase.com/docs/guides/platform/free-project-pausing).
